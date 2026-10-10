@@ -8,6 +8,7 @@
 pub mod logic;
 
 mod assets;
+mod bench;
 mod combat;
 mod enemy;
 mod player;
@@ -69,6 +70,7 @@ impl Plugin for GamePlugin {
                 combat::CombatPlugin,
                 progression::ProgressionPlugin,
                 ui::UiPlugin,
+                bench::BenchPlugin,
             ));
     }
 }

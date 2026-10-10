@@ -110,7 +110,7 @@ fn spawn_enemies(
     }
 }
 
-fn spawn_enemy(
+pub(crate) fn spawn_enemy(
     commands: &mut Commands,
     assets: &GameAssets,
     kind: EnemyKind,
