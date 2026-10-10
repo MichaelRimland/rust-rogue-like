@@ -15,7 +15,8 @@ pub struct ProgressionPlugin;
 
 impl Plugin for ProgressionPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingLevelUps>()
+        app.add_message::<ChooseUpgrade>()
+            .init_resource::<PendingLevelUps>()
             .init_resource::<LevelUpChoices>()
             .add_systems(OnEnter(AppState::InGame), reset_progression)
             .add_systems(Update, pulse_gems.in_set(GameSet::Movement))
@@ -29,6 +30,10 @@ impl Plugin for ProgressionPlugin {
             .add_systems(Update, choose_upgrade.run_if(in_state(GamePhase::LevelUp)));
     }
 }
+
+/// A level-up card was clicked with the mouse; carries the index of the card.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ChooseUpgrade(pub usize);
 
 /// Number of upgrade cards offered per level-up.
 const CHOICES_PER_LEVEL: usize = 3;
@@ -152,6 +157,7 @@ fn roll_choices(
 
 fn choose_upgrade(
     keys: Res<ButtonInput<KeyCode>>,
+    mut clicks: MessageReader<ChooseUpgrade>,
     mut rng: ResMut<GameRng>,
     mut stats: ResMut<Stats>,
     mut choices: ResMut<LevelUpChoices>,
@@ -164,7 +170,10 @@ fn choose_upgrade(
         [KeyCode::Digit2, KeyCode::Numpad2],
         [KeyCode::Digit3, KeyCode::Numpad3],
     ];
-    let Some(index) = KEYS.iter().position(|pair| keys.any_just_pressed(*pair)) else {
+    // Either a click on a card or the number keys picks the upgrade.
+    let clicked = clicks.read().last().map(|click| click.0);
+    let Some(index) = clicked.or_else(|| KEYS.iter().position(|pair| keys.any_just_pressed(*pair)))
+    else {
         return;
     };
     let Some(&upgrade) = choices.0.get(index) else {

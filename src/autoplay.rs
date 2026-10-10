@@ -62,6 +62,8 @@ struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
     endless: bool,
+    /// Do not pick upgrades automatically (to test the mouse selection by hand).
+    hold_level_up: bool,
     /// Dungeon only: begin on this floor (`--floor N`), in its boss room with `--boss`.
     start_floor: Option<u32>,
     boss_room: bool,
@@ -97,6 +99,7 @@ impl AutoplayConfig {
             .map(|floor| floor as u32)
             .or(boss_room.then_some(1));
         Some(Self {
+            hold_level_up: args.iter().any(|arg| arg == "--hold-levelup"),
             start_floor,
             boss_room,
             scene,
@@ -150,7 +153,9 @@ fn autoplay_input(
         AppState::GameOver => keys.press(KeyCode::Enter),
         AppState::Shrine => keys.press(KeyCode::Escape),
         AppState::InGame => {
-            if phase.is_some_and(|phase| *phase.get() == GamePhase::LevelUp) {
+            if !config.hold_level_up
+                && phase.is_some_and(|phase| *phase.get() == GamePhase::LevelUp)
+            {
                 keys.press(KeyCode::Digit1);
             }
             let Ok(player) = player.single() else {
@@ -211,10 +216,19 @@ fn autoplay_run(
     mut bench: ResMut<Bench>,
     mut rng: ResMut<GameRng>,
     mut mode: ResMut<GameMode>,
+    phase: Option<Res<State<GamePhase>>>,
+    mut last_phase: Local<Option<GamePhase>>,
     player: Query<&Transform, With<Player>>,
     enemies: Query<(), With<Enemy>>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    if let Some(phase) = phase {
+        let phase = *phase.get();
+        if *last_phase != Some(phase) {
+            println!("[phase] {:?} -> {:?}", *last_phase, phase);
+            *last_phase = Some(phase);
+        }
+    }
     let Ok(player) = player.single() else {
         return;
     };

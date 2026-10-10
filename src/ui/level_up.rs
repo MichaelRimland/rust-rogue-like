@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::{ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, PANEL_COLOR, TEXT_COLOR, label};
 use crate::{
     GamePhase,
-    progression::{LevelUpChoices, PendingLevelUps},
+    progression::{ChooseUpgrade, LevelUpChoices, PendingLevelUps},
     run::Stats,
 };
 
@@ -21,6 +21,9 @@ impl Plugin for LevelUpUiPlugin {
         );
     }
 }
+
+/// Background of the card under the mouse.
+const HOVER_COLOR: Color = Color::srgba(0.14, 0.16, 0.24, 0.96);
 
 #[derive(Component)]
 struct LevelUpScreen;
@@ -77,31 +80,56 @@ fn rebuild_level_up_screen(
         .id();
 
     for (index, upgrade) in choices.0.iter().enumerate() {
-        commands.spawn((
-            Node {
-                width: px(260.0),
-                min_height: px(150.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: px(12.0),
-                padding: UiRect::all(px(16.0)),
-                border: UiRect::all(px(2.0)),
-                border_radius: BorderRadius::all(px(10.0)),
-                ..default()
-            },
-            BackgroundColor(PANEL_COLOR),
-            BorderColor::all(ACCENT_COLOR),
-            ChildOf(row),
-            children![
-                label(format!("[{}]", index + 1), 22.0, ACCENT_COLOR),
-                label(upgrade.title(&stats), 22.0, TEXT_COLOR),
-                label(upgrade.description(&stats), 17.0, MUTED_TEXT_COLOR),
-            ],
-        ));
+        commands
+            .spawn((
+                Node {
+                    width: px(260.0),
+                    min_height: px(150.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    row_gap: px(12.0),
+                    padding: UiRect::all(px(16.0)),
+                    border: UiRect::all(px(2.0)),
+                    border_radius: BorderRadius::all(px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(PANEL_COLOR),
+                BorderColor::all(ACCENT_COLOR),
+                ChildOf(row),
+                children![
+                    label(format!("[{}]", index + 1), 22.0, ACCENT_COLOR),
+                    label(upgrade.title(&stats), 22.0, TEXT_COLOR),
+                    label(upgrade.description(&stats), 17.0, MUTED_TEXT_COLOR),
+                ],
+            ))
+            // Cards can be picked with the mouse: hover highlights, a click chooses.
+            .observe(
+                move |_click: On<PointerClick>, mut picks: MessageWriter<ChooseUpgrade>| {
+                    picks.write(ChooseUpgrade(index));
+                },
+            )
+            .observe(
+                |over: On<PointerOver>,
+                 mut cards: Query<(&mut BackgroundColor, &mut BorderColor)>| {
+                    if let Ok((mut background, mut border)) = cards.get_mut(over.event_target()) {
+                        background.0 = HOVER_COLOR;
+                        border.set_all(TEXT_COLOR);
+                    }
+                },
+            )
+            .observe(
+                |out: On<PointerOut>,
+                 mut cards: Query<(&mut BackgroundColor, &mut BorderColor)>| {
+                    if let Ok((mut background, mut border)) = cards.get_mut(out.event_target()) {
+                        background.0 = PANEL_COLOR;
+                        border.set_all(ACCENT_COLOR);
+                    }
+                },
+            );
     }
 
     commands.spawn((
-        label("Press 1, 2 or 3", 20.0, MUTED_TEXT_COLOR),
+        label("Click a card or press 1, 2 or 3", 20.0, MUTED_TEXT_COLOR),
         ChildOf(root),
     ));
 }

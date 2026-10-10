@@ -37,7 +37,7 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 | Mouse | Aim the Arcane Missile (it fires automatically) |
 | `Space` | Dash: short burst in the movement direction, invulnerable while dashing (unlocked via level-up) |
 | Right mouse button | Blink: teleport towards the cursor, limited range (unlocked via level-up) |
-| `1` `2` `3` | Choose an upgrade; in the main menu: Dungeon, Endless, Shrine |
+| `1` `2` `3` or mouse click | Choose an upgrade; in the main menu: Dungeon, Endless, Shrine |
 | `Esc` / `P` | Pause |
 | `Enter` / `Space` | Start / restart |
 | `-` `+` / `M` | Volume down / up / mute |
