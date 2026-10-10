@@ -22,7 +22,7 @@ use crate::{
     AppState, GamePhase,
     assets::GameAssets,
     bench::{Bench, spawn_enemy_burst},
-    dungeon::{Door, Dungeon, GameMode},
+    dungeon::{DebugStart, Door, Dungeon, GameMode},
     enemy::Enemy,
     logic::dungeon::RoomKind,
     player::Player,
@@ -37,6 +37,12 @@ impl Plugin for AutoplayPlugin {
         let Some(config) = AutoplayConfig::from_args(std::env::args()) else {
             return;
         };
+        if let Some(floor) = config.start_floor {
+            app.insert_resource(DebugStart {
+                floor,
+                boss_room: config.boss_room,
+            });
+        }
         app.insert_resource(config)
             .insert_resource(SaveDisabled)
             .init_resource::<AutoplayStats>()
@@ -56,6 +62,9 @@ struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
     endless: bool,
+    /// Dungeon only: begin on this floor (`--floor N`), in its boss room with `--boss`.
+    start_floor: Option<u32>,
+    boss_room: bool,
     /// Instead of playing, show a menu screen (`menu` or `shrine`), save the screenshot
     /// and exit. Handy for checking the UI.
     scene: Option<String>,
@@ -83,7 +92,13 @@ impl AutoplayConfig {
             .position(|arg| arg == "--scene")
             .and_then(|i| args.get(i + 1))
             .cloned();
+        let boss_room = args.iter().any(|arg| arg == "--boss");
+        let start_floor = number("--floor")
+            .map(|floor| floor as u32)
+            .or(boss_room.then_some(1));
         Some(Self {
+            start_floor,
+            boss_room,
             scene,
             seconds: number("--autoplay")?,
             enemies: number("--enemies").unwrap_or(0.0) as usize,

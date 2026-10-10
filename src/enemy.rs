@@ -44,7 +44,7 @@ impl Plugin for EnemyPlugin {
 
 const GRID_CELL_SIZE: f32 = 64.0;
 /// Radius of the largest enemy; used to widen grid queries so no overlap is missed.
-pub const MAX_ENEMY_RADIUS: f32 = 34.0;
+pub const MAX_ENEMY_RADIUS: f32 = 48.0;
 const MAX_ENEMIES: usize = 500;
 const SPAWN_DISTANCE: (f32, f32) = (760.0, 860.0);
 /// Enemies farther away than this are moved back towards the player.
@@ -134,6 +134,10 @@ pub(crate) struct EnemySpawn {
     /// Multiplies the experience dropped.
     pub xp_factor: u32,
     pub tint: Color,
+    /// Replaces the sprite frames of the enemy kind (used by the end boss).
+    pub frames: Option<[Handle<Image>; 2]>,
+    /// `false` strips the kind's ranged attack (bosses have their own).
+    pub ranged: bool,
 }
 
 impl EnemySpawn {
@@ -146,6 +150,8 @@ impl EnemySpawn {
             visual_factor: 1.0,
             xp_factor: 1,
             tint: Color::WHITE,
+            frames: None,
+            ranged: true,
         }
     }
 }
@@ -170,7 +176,10 @@ pub(crate) fn spawn_enemy_with(
     spawn: EnemySpawn,
 ) -> Entity {
     let base = spawn.kind.archetype();
-    let frames = assets.enemy_frames(spawn.kind);
+    let frames = spawn
+        .frames
+        .clone()
+        .unwrap_or_else(|| assets.enemy_frames(spawn.kind));
     // Different phases keep a crowd from stepping in unison.
     let phase = spawn.position.x.abs() as u32;
     let visual_scale = SPRITE_SCALE * spawn.visual_factor;
@@ -187,7 +196,7 @@ pub(crate) fn spawn_enemy_with(
                 xp: base.xp * spawn.xp_factor,
                 visual_scale,
                 hit_flash: 0.0,
-                ranged: base.ranged,
+                ranged: base.ranged.filter(|_| spawn.ranged),
                 // Stagger first shots so a group of archers does not fire in unison.
                 shoot_timer: base.ranged.map_or(0.0, |ranged| {
                     ranged.cooldown * (0.4 + 0.1 * (phase % 6) as f32)

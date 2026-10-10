@@ -380,6 +380,30 @@ def archer(frame: int) -> Image.Image:
     return c.image()
 
 
+def king(frame: int) -> Image.Image:
+    """The end boss: a crowned, hollow-eyed king in a dark robe."""
+    c = Canvas(SIZE)
+    colors = {
+        "a": rgb("#0d0b14"), "b": rgb("#2b2438"), "c": rgb("#5a5266"), "d": rgb("#a8a0ae"),
+        "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#0d0b14"),
+        "e": rgb("#ec6a4a"), "q": rgb("#1a1626"), "m": rgb("#e0a830"), "n": rgb("#ffe27a"),
+        "p": rgb("#7a1c26"),
+    }
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h", "n": "m"}
+    draw_hooded_body(c, colors, darker)
+    # A jagged gold crown on top of the hood, and a red sash across the robe.
+    draw_patch(c, 12, 3, ["m..mm..m", "mmmmmmmm", ".mnnnnm."], colors)
+    draw_patch(c, 9, 21, ["pppppppppppppp"], colors)
+    # A tall ceremonial staff in the right hand.
+    for y in range(8, 29):
+        c.put(27, y, colors["c"])
+    draw_patch(c, 25, 5, ["m.m", "mmm", ".m."], colors)
+    draw_patch(c, 25, 17, ["ff"], colors)
+    if frame == 1:
+        c = stride(c, 26, 27)
+    return c.image()
+
+
 def warlock(frame: int) -> Image.Image:
     c = Canvas(SIZE)
     colors = {
@@ -562,6 +586,8 @@ SPRITES = {
     "bat_1": lambda: bat(1),
     "warlock_0": lambda: warlock(0),
     "warlock_1": lambda: warlock(1),
+    "king_0": lambda: king(0),
+    "king_1": lambda: king(1),
     "ground": ground,
     "missile": missile,
     "enemy_bolt": enemy_bolt,

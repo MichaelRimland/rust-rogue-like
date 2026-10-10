@@ -1,20 +1,22 @@
-//! Dungeon structure: which rooms a floor consists of and how hard each one is.
+//! Dungeon structure: which rounds a floor consists of, how hard each one is and which
+//! bosses guard the end of a floor.
 //!
-//! A floor is a short chain of rooms. After the first room the player chooses between two
-//! doors per step; the last room of every floor is the boss.
+//! A floor is a short chain of rooms. After the first round the player chooses between
+//! two doors per step; the last room of every floor is a boss fight. The final floor ends
+//! with the end boss.
 
 use super::{enemies::EnemyKind, rng::Rng};
 
-/// Number of floors before the run is won.
+/// Number of floors before the run is won. The last floor's boss is the end boss.
 pub const FLOORS: u32 = 3;
-/// Choice layers between the entry room and the boss.
+/// Choice layers between the entry round and the boss.
 const MIDDLE_LAYERS: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RoomKind {
-    /// Several waves of enemies.
+    /// A round: enemies stream in until enough of them are defeated.
     Arena,
-    /// One wave of tougher enemies; rewards a free upgrade.
+    /// A round against tougher enemies; rewards a free upgrade.
     Elite,
     /// A chest with a free upgrade.
     Treasure,
@@ -112,23 +114,40 @@ impl FloorPlan {
     }
 }
 
-/// Number of enemy waves in a combat room.
-pub fn wave_count(kind: RoomKind, floor: u32, layer: usize) -> u32 {
+// ---------------------------------------------------------------------------
+// Rounds
+// ---------------------------------------------------------------------------
+
+/// Enemies that have to be defeated to finish a combat round. Elite rounds count elites.
+pub fn round_quota(kind: RoomKind, floor: u32, layer: usize) -> u32 {
     match kind {
-        RoomKind::Arena => 2 + (layer as u32 + floor) / 3,
-        RoomKind::Elite => 1,
-        RoomKind::Boss => 1,
+        RoomKind::Arena => 24 + 6 * floor + 4 * layer as u32,
+        RoomKind::Elite => 4 + floor,
         _ => 0,
     }
 }
 
-/// Enemies in a wave. The boss room counts as a single enemy.
-pub fn wave_size(kind: RoomKind, floor: u32, layer: usize, wave: u32) -> u32 {
+/// Seconds between two batches of enemies entering the arena during a round.
+pub fn round_spawn_interval(kind: RoomKind, floor: u32, layer: usize) -> f32 {
     match kind {
-        RoomKind::Arena => 4 + 2 * floor + layer as u32 + 2 * wave,
-        RoomKind::Elite => 2 + floor,
-        RoomKind::Boss => 1,
-        _ => 0,
+        RoomKind::Elite => 3.5,
+        _ => (2.2 - 0.12 * layer as f32 - 0.2 * floor as f32).clamp(0.8, 2.2),
+    }
+}
+
+/// Enemies per batch.
+pub fn round_batch_size(kind: RoomKind, floor: u32, layer: usize) -> u32 {
+    match kind {
+        RoomKind::Elite => 1,
+        _ => 2 + floor + layer as u32 / 2,
+    }
+}
+
+/// Most enemies alive at the same time.
+pub fn round_alive_cap(kind: RoomKind, floor: u32) -> usize {
+    match kind {
+        RoomKind::Elite => 3,
+        _ => 40 + 15 * floor as usize,
     }
 }
 
@@ -144,64 +163,6 @@ pub fn enemy_health_multiplier(floor: u32, layer: usize) -> f32 {
     1.0 + difficulty_time(floor, layer) / 90.0
 }
 
-/// How a boss looks and attacks. Every floor has its own.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BossPattern {
-    pub name: &'static str,
-    /// Sprite and base stats come from this enemy kind.
-    pub kind: EnemyKind,
-    /// Sprite scale relative to a normal enemy.
-    pub visual: f32,
-    pub tint: [f32; 3],
-    /// Bolts in the ring fired every few seconds, and when the boss is enraged.
-    pub ring: u32,
-    pub ring_enraged: u32,
-    /// Bolts in an aimed fan fired together with the ring (0 means none).
-    pub aimed: u32,
-    /// What the boss calls to its side.
-    pub summon: EnemyKind,
-}
-
-pub fn boss_pattern(floor: u32) -> BossPattern {
-    match floor {
-        0 | 1 => BossPattern {
-            name: "Ogre Warlord",
-            kind: EnemyKind::Ogre,
-            visual: 3.0,
-            tint: [1.0, 0.62, 0.72],
-            ring: 10,
-            ring_enraged: 16,
-            aimed: 0,
-            summon: EnemyKind::Goblin,
-        },
-        2 => BossPattern {
-            name: "Bone Colossus",
-            kind: EnemyKind::Skeleton,
-            visual: 5.0,
-            tint: [0.75, 1.0, 0.95],
-            ring: 8,
-            ring_enraged: 12,
-            aimed: 3,
-            summon: EnemyKind::Skeleton,
-        },
-        _ => BossPattern {
-            name: "Archwarlock",
-            kind: EnemyKind::Warlock,
-            visual: 5.0,
-            tint: [1.0, 0.8, 1.0],
-            ring: 12,
-            ring_enraged: 18,
-            aimed: 5,
-            summon: EnemyKind::Bat,
-        },
-    }
-}
-
-/// Health of the floor's boss.
-pub fn boss_health(floor: u32) -> f32 {
-    700.0 * (1.0 + 0.9 * floor.saturating_sub(1) as f32)
-}
-
 /// Gold awarded for clearing a room.
 pub fn clear_gold(kind: RoomKind, floor: u32) -> u32 {
     let base = match kind {
@@ -212,6 +173,158 @@ pub fn clear_gold(kind: RoomKind, floor: u32) -> u32 {
         _ => 0,
     };
     base + 5 * floor.saturating_sub(1)
+}
+
+// ---------------------------------------------------------------------------
+// Bosses
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BossKind {
+    /// Heavy brute that summons goblins and charges when hurt.
+    OgreWarlord,
+    /// Fast and erratic: charges at the player and calls swarms of bats.
+    BatMatron,
+    /// Slow giant with bolt rings and aimed volleys.
+    BoneColossus,
+    /// Caster with dense volleys and a spiral of bolts once wounded.
+    Archwarlock,
+    /// The end boss: every attack, three phases.
+    HollowKing,
+}
+
+/// How a boss looks and attacks. Every boss has its own.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BossPattern {
+    pub name: &'static str,
+    /// Sprite and base stats come from this enemy kind.
+    pub kind: EnemyKind,
+    /// Collision radius in world units.
+    pub radius: f32,
+    /// Sprite scale relative to a normal enemy.
+    pub visual: f32,
+    pub tint: [f32; 3],
+    /// Bolts in the ring fired every few seconds; every phase adds two.
+    pub ring: u32,
+    /// Bolts in an aimed fan fired together with the ring (0 means none).
+    pub aimed: u32,
+    /// Arms of the bolt spiral, active from the second phase (0 means none).
+    pub spiral_arms: u32,
+    /// The phase from which the boss charges at the player.
+    pub charge_from_phase: Option<u32>,
+    /// What the boss calls to its side.
+    pub summon: EnemyKind,
+    /// Multiplies the floor's boss health.
+    pub health_factor: f32,
+    /// The end boss gets its own sprite.
+    pub is_end_boss: bool,
+}
+
+pub fn boss_pattern(kind: BossKind) -> BossPattern {
+    match kind {
+        BossKind::OgreWarlord => BossPattern {
+            name: "Ogre Warlord",
+            kind: EnemyKind::Ogre,
+            radius: 46.0,
+            visual: 3.2,
+            tint: [1.0, 0.62, 0.72],
+            ring: 10,
+            aimed: 0,
+            spiral_arms: 0,
+            charge_from_phase: Some(1),
+            summon: EnemyKind::Goblin,
+            health_factor: 1.0,
+            is_end_boss: false,
+        },
+        BossKind::BatMatron => BossPattern {
+            name: "Bat Matron",
+            kind: EnemyKind::Bat,
+            radius: 34.0,
+            visual: 4.5,
+            tint: [0.85, 0.7, 1.0],
+            ring: 6,
+            aimed: 0,
+            spiral_arms: 0,
+            charge_from_phase: Some(0),
+            summon: EnemyKind::Bat,
+            health_factor: 0.8,
+            is_end_boss: false,
+        },
+        BossKind::BoneColossus => BossPattern {
+            name: "Bone Colossus",
+            kind: EnemyKind::Skeleton,
+            radius: 46.0,
+            visual: 4.2,
+            tint: [0.75, 1.0, 0.95],
+            ring: 8,
+            aimed: 3,
+            spiral_arms: 0,
+            charge_from_phase: None,
+            summon: EnemyKind::Skeleton,
+            health_factor: 1.1,
+            is_end_boss: false,
+        },
+        BossKind::Archwarlock => BossPattern {
+            name: "Archwarlock",
+            kind: EnemyKind::Warlock,
+            radius: 44.0,
+            visual: 4.2,
+            tint: [0.9, 0.8, 1.0],
+            ring: 10,
+            aimed: 5,
+            spiral_arms: 2,
+            charge_from_phase: None,
+            summon: EnemyKind::Archer,
+            health_factor: 1.0,
+            is_end_boss: false,
+        },
+        BossKind::HollowKing => BossPattern {
+            name: "The Hollow King",
+            kind: EnemyKind::Warlock,
+            radius: 48.0,
+            visual: 4.6,
+            tint: [1.0, 1.0, 1.0],
+            ring: 12,
+            aimed: 5,
+            spiral_arms: 4,
+            charge_from_phase: Some(2),
+            summon: EnemyKind::Skeleton,
+            health_factor: 1.9,
+            is_end_boss: true,
+        },
+    }
+}
+
+/// The bosses a floor can end with. Floors before the last one offer a choice, so two
+/// runs rarely meet the same sequence; the last floor always ends with the end boss.
+pub fn floor_boss_pool(floor: u32) -> &'static [BossKind] {
+    match floor {
+        0 | 1 => &[BossKind::OgreWarlord, BossKind::BatMatron],
+        2 => &[BossKind::BoneColossus, BossKind::Archwarlock],
+        _ => &[BossKind::HollowKing],
+    }
+}
+
+pub fn pick_boss(rng: &mut Rng, floor: u32) -> BossKind {
+    let pool = floor_boss_pool(floor);
+    pool[rng.below(pool.len())]
+}
+
+/// Health of a floor's boss.
+pub fn boss_health(floor: u32, kind: BossKind) -> f32 {
+    let base = 700.0 * (1.0 + 0.9 * floor.saturating_sub(1) as f32);
+    base * boss_pattern(kind).health_factor
+}
+
+/// Boss phase from the remaining health: `0` fresh, `1` below two thirds, `2` below one third.
+pub fn boss_phase(health_fraction: f32) -> u32 {
+    if health_fraction < 1.0 / 3.0 {
+        2
+    } else if health_fraction < 2.0 / 3.0 {
+        1
+    } else {
+        0
+    }
 }
 
 #[cfg(test)]
@@ -261,33 +374,28 @@ mod tests {
     }
 
     #[test]
-    fn combat_rooms_have_waves_and_peaceful_rooms_do_not() {
-        for kind in [RoomKind::Arena, RoomKind::Elite, RoomKind::Boss] {
+    fn only_combat_rooms_have_a_quota() {
+        for kind in [RoomKind::Arena, RoomKind::Elite] {
             assert!(kind.is_combat());
-            assert!(wave_count(kind, 1, 1) > 0);
-            assert!(wave_size(kind, 1, 1, 0) > 0);
+            assert!(round_quota(kind, 1, 1) > 0);
+            assert!(round_batch_size(kind, 1, 1) > 0);
+            assert!(round_alive_cap(kind, 1) > 0);
         }
         for kind in [RoomKind::Treasure, RoomKind::Shop, RoomKind::Rest] {
             assert!(!kind.is_combat());
-            assert_eq!(wave_count(kind, 1, 1), 0);
+            assert_eq!(round_quota(kind, 1, 1), 0);
         }
     }
 
     #[test]
-    fn every_floor_has_a_different_and_growing_boss() {
-        let patterns: Vec<_> = (1..=FLOORS).map(boss_pattern).collect();
-        for (i, a) in patterns.iter().enumerate() {
-            for b in &patterns[i + 1..] {
-                assert_ne!(a.name, b.name);
-            }
-        }
-        for pair in patterns.windows(2) {
-            assert!(pair[1].ring >= pair[0].ring - 4);
-            assert!(pair[1].aimed >= pair[0].aimed);
-        }
-        for pattern in &patterns {
-            assert!(pattern.ring_enraged > pattern.ring);
-        }
+    fn rounds_get_longer_and_denser_deeper_in() {
+        assert!(round_quota(RoomKind::Arena, 2, 3) > round_quota(RoomKind::Arena, 1, 1));
+        assert!(
+            round_spawn_interval(RoomKind::Arena, 3, 4)
+                < round_spawn_interval(RoomKind::Arena, 1, 1)
+        );
+        assert!(round_spawn_interval(RoomKind::Arena, 9, 9) >= 0.8);
+        assert!(round_batch_size(RoomKind::Arena, 3, 4) > round_batch_size(RoomKind::Arena, 1, 1));
     }
 
     #[test]
@@ -295,7 +403,62 @@ mod tests {
         assert!(difficulty_time(1, 3) > difficulty_time(1, 0));
         assert!(difficulty_time(2, 0) > difficulty_time(1, 4));
         assert!(enemy_health_multiplier(3, 2) > enemy_health_multiplier(1, 0));
-        assert!(boss_health(2) > boss_health(1));
-        assert!(wave_size(RoomKind::Arena, 2, 3, 1) > wave_size(RoomKind::Arena, 1, 1, 0));
+    }
+
+    #[test]
+    fn the_last_floor_always_ends_with_the_end_boss() {
+        assert_eq!(floor_boss_pool(FLOORS), &[BossKind::HollowKing]);
+        assert!(boss_pattern(BossKind::HollowKing).is_end_boss);
+        for floor in 1..FLOORS {
+            assert!(
+                floor_boss_pool(floor).len() >= 2,
+                "floor {floor} offers a choice"
+            );
+            for &kind in floor_boss_pool(floor) {
+                assert!(!boss_pattern(kind).is_end_boss);
+            }
+        }
+    }
+
+    #[test]
+    fn picked_bosses_belong_to_the_floor_and_vary() {
+        let mut rng = Rng::new(5);
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..200 {
+            let boss = pick_boss(&mut rng, 1);
+            assert!(floor_boss_pool(1).contains(&boss));
+            seen.insert(boss);
+        }
+        assert_eq!(seen.len(), floor_boss_pool(1).len());
+    }
+
+    #[test]
+    fn bosses_are_distinct_and_the_end_boss_is_the_toughest() {
+        let all = [
+            BossKind::OgreWarlord,
+            BossKind::BatMatron,
+            BossKind::BoneColossus,
+            BossKind::Archwarlock,
+            BossKind::HollowKing,
+        ];
+        for (i, &a) in all.iter().enumerate() {
+            for &b in &all[i + 1..] {
+                assert_ne!(boss_pattern(a).name, boss_pattern(b).name);
+            }
+        }
+        let king = boss_health(FLOORS, BossKind::HollowKing);
+        for &kind in &all[..4] {
+            assert!(king > boss_health(FLOORS, kind));
+        }
+        assert!(boss_health(2, BossKind::OgreWarlord) > boss_health(1, BossKind::OgreWarlord));
+    }
+
+    #[test]
+    fn boss_phases_follow_the_remaining_health() {
+        assert_eq!(boss_phase(1.0), 0);
+        assert_eq!(boss_phase(0.7), 0);
+        assert_eq!(boss_phase(0.5), 1);
+        assert_eq!(boss_phase(0.2), 2);
+        assert_eq!(boss_phase(0.0), 2);
     }
 }

@@ -34,6 +34,8 @@ pub struct GameAssets {
     warlock: [Handle<Image>; 2],
 
     pub missile: Handle<Image>,
+    /// The end boss.
+    pub king: [Handle<Image>; 2],
     pub ground: Handle<Image>,
     pub enemy_bolt: Handle<Image>,
     pub rune: Handle<Image>,
@@ -111,6 +113,7 @@ fn create_assets(
         warlock: frames("warlock"),
 
         missile: sprite("missile"),
+        king: frames("king"),
         ground: sprite("ground"),
         enemy_bolt: sprite("enemy_bolt"),
         rune: sprite("rune"),

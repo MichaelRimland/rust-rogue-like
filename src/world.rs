@@ -1,11 +1,11 @@
 //! Camera and the endless forest floor.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
-    dungeon::GameMode,
+    dungeon::{ARENA_HALF, GameMode},
     player::Player,
     run::GameRng,
 };
@@ -133,11 +133,16 @@ fn follow_player(
     mut ground: Single<&mut Transform, (With<Ground>, Without<Camera2d>, Without<Player>)>,
     mut shake: ResMut<CameraShake>,
     mode: Res<GameMode>,
+    window: Single<&Window, With<PrimaryWindow>>,
 ) {
     let dt = time.delta_secs();
-    // Dungeon rooms fit on screen, so the camera stays centered on the arena.
     let target = match *mode {
-        GameMode::Dungeon => Vec2::ZERO,
+        // The arena is bigger than the screen: follow the player, but stop at the walls so
+        // the view never shows what lies beyond them.
+        GameMode::Dungeon => {
+            let reach = (ARENA_HALF - window.size() / 2.0).max(Vec2::ZERO);
+            player.translation.truncate().clamp(-reach, reach)
+        }
         GameMode::Endless => player.translation.truncate(),
     };
     // Frame-rate independent exponential smoothing.

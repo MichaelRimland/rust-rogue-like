@@ -72,6 +72,11 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
 - Game feel: floating damage numbers (capped), screen shake (`CameraShake` in `world.rs`),
   archers light up before shooting, tiled forest floor snapped to the tile grid.
+- Dungeon rounds: the arena is `ARENA_HALF` (2200x1400), the camera follows the player and
+  stops at the walls. A combat room is a *round*: enemies stream in from a ring around the
+  player until `round_quota` kills, then the rest die and doors open. Boss rooms pick one of
+  two bosses per floor (`floor_boss_pool`); floor 3 always ends with the Hollow King (phases,
+  spiral, charge, own sprite). Dev flags: `--floor N --boss` jumps to a boss room.
 - Meta-progression: runs earn soul shards, spent at the shrine (main menu key 3) on permanent
   bonuses. Saved to `savegame.ron` (native only; the browser build keeps it in memory).
   Autoplay never writes the save (`SaveDisabled`).
@@ -121,7 +126,7 @@ web/index.html      page for the WASM build
 - [x] **M1 core loop** – done
 - [x] **M2 performance** – done: `--autoplay SECS --enemies N` benchmark (`autoplay.rs`),
       5 000 enemies at ~230 FPS, numbers in README
-- [x] **M3 dungeon** – done: `dungeon.rs` (rooms, doors, shop, chest, rest, boss) on top of
+- [x] **M3 dungeon** – done (reworked into rounds in a large arena, 5 bosses incl. an end boss): `dungeon.rs` (rooms, doors, shop, chest, rest, boss) on top of
       `logic/dungeon.rs` (floor plans, waves, difficulty). Main menu picks Dungeon or Endless
       (`GameMode`). 3 floors, 6 rooms each, boss at the end, victory after floor 3
 - [x] **M4 content** – done: enemies are data-driven (`assets/data/enemies.ron`, embedded with

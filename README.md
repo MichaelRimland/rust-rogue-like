@@ -22,8 +22,9 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   projectiles, piercing) are not given upfront: you need luck on the roll, and every pick
   can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
-- **Two modes**: a **Dungeon** of three floors with rooms, door choices, shops, treasure and
-  bosses, and the original **Endless** survival mode
+- **Two modes**: a **Dungeon** of three floors in a large arena: fight rounds, choose doors
+  (elite rounds, shops, treasure, rest), beat a different boss on every floor and finally
+  the end boss, or play the original **Endless** survival mode
 - **Meta-progression**: runs earn soul shards that buy permanent bonuses at the shrine
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
 - Runs natively (Windows, macOS, Linux) and in the browser via WebAssembly
@@ -162,12 +163,13 @@ Ryzen 5 7600X, RX 7900 XT, 1280x720; the bot walks around and picks upgrades):
 
 | Enemies alive | Avg frame time | FPS | p99 frame time |
 | ---: | ---: | ---: | ---: |
-| 1 000 | 3.6 ms | 280 | 4.0 ms |
-| 5 000 | 4.3 ms | 233 | 8.2 ms |
-| 10 000 | 9.6 ms | 105 | 19.6 ms |
-| 20 000 | 23.7 ms | 42 | 41.6 ms |
+| 1 000 | 6.3 ms | 158 | 25 ms |
+| 5 000 | 8.1 ms | 124 | 25 ms |
+| 10 000 | 14.9 ms | 67 | 24 ms |
 
-The target of 5 000 enemies at 60 FPS is met with a wide margin. The in-game overlay
+The crowd contains every enemy type, including the ranged ones and all their bolts, with
+sound, damage numbers and the autoplay bot running. The target of 5 000 enemies at 60 FPS
+is met with a wide margin (the same test measured 233 FPS before ranged enemies existed). The in-game overlay
 (`F3`) and enemy burst (`F4`) show the same numbers interactively. Browser (WASM) performance
 is not measured yet.
 
