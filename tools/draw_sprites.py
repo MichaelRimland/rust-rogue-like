@@ -112,6 +112,13 @@ def stride(canvas: Canvas, y_start: int, y_end: int) -> Canvas:
     return result
 
 
+def shift(canvas: Canvas, dy: int) -> Canvas:
+    result = Canvas(canvas.size)
+    for (x, y), color in canvas.pixels.items():
+        result.put(x, y + dy, color)
+    return result
+
+
 def ellipse(canvas: Canvas, cx: float, cy: float, rx: float, ry: float, ramp: list):
     """Filled ellipse shaded from the top-left; `ramp` goes dark -> light."""
     for y in range(canvas.size):
@@ -342,102 +349,158 @@ def ogre(frame: int) -> Image.Image:
     return c.image()
 
 
-def draw_hooded_body(c: Canvas, colors: dict, darker: dict):
-    """A short hooded figure; shared by the archer and the warlock."""
-    rows = [
-        "..............bb",  # 6 hood tip
-        ".............cbb",
-        "............ccbb",
-        "...........ccbbb",
-        "..........ccbbbb",
-        "..........cbiiii",  # 11 hood opening
-        "..........cbiffg",  # bone mask
-        "..........cbifeg",  # glowing eye
-        "..........cbighh",
-        ".........ccbbiii",
-        "........ccbbbbbb",  # 16 shoulders
-        ".......ccbbbbbbb",
-        ".......cbbbbbbbb",
-        "......ccbbbbbbbb",
-        "......cbbbbbbbbb",
-        "......ccbbbbabbb",
-        ".....ccbbbbbabbb",
-        ".....ccbbbbbbbbb",
-        ".....cbbbabbbbbb",
-        ".....aabbaabbaab",  # 25 ragged hem
-        "........qqq.....",  # 26 boots
-        "........qqq.....",
-    ]
-    draw_half_mirrored(c, rows, colors, darker, top=6)
-
-
 def archer(frame: int) -> Image.Image:
+    """A lean hooded ranger: short cloak, visible boots, bow and quiver."""
     c = Canvas(SIZE)
     colors = {
         "a": rgb("#3a0f1a"), "b": rgb("#7a1c26"), "c": rgb("#c02f2f"), "d": rgb("#ec6a4a"),
         "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#2b2438"),
-        "e": rgb("#ffe27a"), "q": rgb("#1a1626"), "k": rgb("#7a4a2a"), "j": rgb("#4a2c1e"),
-        "x": rgb("#d4cdd0"),
+        "e": rgb("#ffe27a"), "q": rgb("#1a1626"), "k": rgb("#4a2c1e"), "j": rgb("#7a4a2a"),
+        "m": rgb("#b0763a"), "x": rgb("#d4cdd0"), "l": rgb("#a8a0ae"),
     }
-    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
-    draw_hooded_body(c, colors, darker)
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h", "m": "j"}
+    rows = [
+        "..............bb",  # 0 hood tip
+        ".............cbb",
+        "............ccbb",
+        "...........cccbb",
+        "..........ccbbbb",
+        "..........cbiiii",  # 5 hood opening
+        "..........cbiffg",  # bone mask
+        "..........cbifeg",  # glowing eye
+        "..........cbighh",
+        ".........ccbbiii",
+        "........ccbbbbbb",  # 10 shoulders
+        "........cbbbbbbb",
+        "........cbbbbmbb",  # belt strap
+        "........cbbbbbbb",
+        ".........cbbbbbb",  # 14 narrow waist
+        ".........cbbabbb",
+        "........ccbbabbb",  # 16 short cloak
+        "........ccbbbbbb",
+        "........aabbaabb",  # 18 ragged hem
+        "..........kk....",  # 19 legs
+        "..........kk....",
+        ".........qqq....",  # 21 boots
+    ]
+    draw_half_mirrored(c, rows, colors, darker, top=5)
     # Short bow in the right hand: wooden limb on the right, bone string on the left.
-    for x, y in ((27, 11), (28, 12), (29, 13), (29, 14), (30, 15), (30, 16), (30, 17),
-                 (30, 18), (30, 19), (29, 20), (29, 21), (28, 22), (27, 23)):
-        c.put(x, y, colors["k"])
-    for y in range(12, 23):
+    for x, y in ((27, 12), (28, 13), (29, 14), (29, 15), (30, 16), (30, 17), (30, 18),
+                 (30, 19), (30, 20), (29, 21), (29, 22), (28, 23), (27, 24)):
+        c.put(x, y, colors["j"])
+    for y in range(13, 24):
         c.put(27, y, colors["x"])
-    draw_patch(c, 25, 17, ["ff"], colors)
-    # A quiver full of arrows on the back, and a torn hood.
-    draw_patch(c, 8, 17, ["e.", "kk", "kk", "kk", "k."], colors)
+    draw_patch(c, 25, 18, ["ff"], colors)
+    # A quiver full of arrows on the back, and a scarf that trails to one side.
+    draw_patch(c, 7, 18, ["e.", "kk", "kk", "kk", "k."], colors)
+    c.put(8, 17, colors["x"])
     c.put(9, 16, colors["x"])
-    c.put(10, 15, colors["x"])
-    c.pixels.pop((20, 7), None)
+    for x, y in ((21, 17), (22, 18), (23, 19), (23, 20)):
+        c.put(x, y, colors["c"])
     if frame == 1:
-        c = stride(c, 26, 27)
+        c = stride(c, 24, 26)
     return c.image()
 
 
 def king(frame: int) -> Image.Image:
-    """The end boss: a crowned, hollow-eyed king in a dark robe."""
+    """The end boss: a crowned, hollow-eyed king in spiked pauldrons and a long cape."""
     c = Canvas(SIZE)
     colors = {
         "a": rgb("#0d0b14"), "b": rgb("#2b2438"), "c": rgb("#5a5266"), "d": rgb("#a8a0ae"),
         "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#0d0b14"),
         "e": rgb("#ec6a4a"), "q": rgb("#1a1626"), "m": rgb("#e0a830"), "n": rgb("#ffe27a"),
-        "p": rgb("#7a1c26"),
+        "p": rgb("#7a1c26"), "r": rgb("#c02f2f"),
     }
-    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h", "n": "m"}
-    draw_hooded_body(c, colors, darker)
-    # A jagged gold crown on top of the hood, and a red sash across the robe.
-    draw_patch(c, 12, 3, ["m..mm..m", "mmmmmmmm", ".mnnnnm."], colors)
-    draw_patch(c, 9, 21, ["pppppppppppppp"], colors)
-    # A tall ceremonial staff in the right hand.
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h", "n": "m", "r": "p"}
+    rows = [
+        ".........m.m.m.m",  # 0 crown spikes
+        ".........mmmmmmm",
+        ".........mnrnrnm",  # jewels
+        "........abbbbbbb",  # 3 helmet and face
+        "........abffffff",
+        "........abffeffg",  # ember eye
+        "........abffffgg",
+        "........abfhfhfh",  # teeth
+        ".......cabbbbbbb",  # 8 neck
+        "....mmmmcbbbbbbb",  # 9 gold trimmed pauldrons
+        "...mccccbbbbbbbb",
+        "...mccbbbbbbbbbb",
+        "...mcbbbbbbmbbbb",
+        "....cbbbbbbbbbbb",
+        ".....cbbbbbppppp",  # 14 red sash
+        ".....cbbbbbbbbbb",
+        "....ccbbbabbbbbb",
+        "....ccbbbbbbabbb",
+        "...ccbbbbabbbbbb",  # 18 cape flares out
+        "...ccbbbbbbbbbbb",
+        "..ccbbabbbbbabbb",
+        "..cbbaabbbaabbbb",
+        "..aabbaabbaaabbb",  # 22 ragged hem
+        "........qqq.....",  # 23 boots
+        "........qqq.....",
+    ]
+    draw_half_mirrored(c, rows, colors, darker, top=3)
+    # Spikes on the left pauldron and a crooked golden staff in the right hand.
+    for x, y in ((6, 11), (5, 10), (4, 9), (7, 10)):
+        c.put(x, y, colors["d"])
     for y in range(8, 29):
         c.put(27, y, colors["c"])
     draw_patch(c, 25, 5, ["m.m", "mmm", ".m."], colors)
     draw_patch(c, 25, 17, ["ff"], colors)
+    # A cracked helmet: one dark line across the face.
+    for x, y in ((13, 8), (14, 9), (15, 10)):
+        c.put(x, y, colors["h"])
     if frame == 1:
         c = stride(c, 26, 27)
     return c.image()
 
 
 def warlock(frame: int) -> Image.Image:
+    """A floating caster: horned hood, wide sleeves, no feet, orbiting runes."""
     c = Canvas(SIZE)
     colors = {
         "a": rgb("#123a44"), "b": rgb("#2a7a80"), "c": rgb("#62c9c0"), "d": rgb("#c9a8ff"),
         "f": rgb("#5b3a9e"), "g": rgb("#2c1a4d"), "h": rgb("#1a1626"), "i": rgb("#0d0b14"),
-        "e": rgb("#c9a8ff"), "q": rgb("#1a1626"), "p": rgb("#8f6af0"), "j": rgb("#4a2c1e"),
+        "e": rgb("#c9a8ff"), "w": rgb("#d4cdd0"), "p": rgb("#8f6af0"), "m": rgb("#e0a830"),
     }
-    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
-    draw_hooded_body(c, colors, darker)
-    # A crooked staff topped by a floating orb.
-    for y in range(14, 29):
-        c.put(28, y, colors["j"])
-    draw_patch(c, 26, 8, [".pp.", "pddp", "pddp", ".pp."], colors)
-    draw_patch(c, 25, 17, ["ff"], colors)
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "w": "h"}
+    rows = [
+        "............w...",  # 0 horn
+        "...........wc...",
+        "..........ccbbbb",  # 2 hood
+        ".........ccbbbbb",
+        ".........cbiiiii",
+        ".........cbiiiei",  # 5 glowing eye
+        ".........cbbbiii",
+        "........ccbbbbbb",
+        ".......cccbbbbbb",  # 8 sleeves
+        "......cccbbbbbbb",
+        "......ccbbbbabbb",
+        ".....ccbbbbbabbb",
+        ".....cbbbbbbmbbb",  # 12 sash
+        "......cbbbbbbbbb",
+        "......cbbabbbbbb",
+        ".......cbbbbabbb",
+        ".......cbbbbbbbb",
+        "........cbbbbabb",
+        "........cbbabbbb",
+        ".........cbbabbb",
+        ".........cbbbbab",
+        "..........cbbbbb",  # 21 robe tapers off, nothing below
+        "...........cbbbb",
+        "............cbbb",
+        "..............bb",
+    ]
+    draw_half_mirrored(c, rows, colors, darker, top=3)
+    # Two orbs float by the hands, a few runes circle the wizard.
+    draw_patch(c, 4, 12, [".pp.", "pddp", "pddp", ".pp."], colors)
+    draw_patch(c, 24, 9, [".pp.", "pddp", "pddp", ".pp."], colors)
+    for x, y in ((3, 22), (28, 20), (7, 27), (25, 26), (2, 6), (29, 3)):
+        c.put(x, y, colors["d"])
+    for x, y in ((4, 23), (28, 21), (7, 28)):
+        c.put(x, y, colors["c"])
     if frame == 1:
-        c = stride(c, 26, 27)
+        c = shift(c, -1)
     return c.image()
 
 

@@ -53,6 +53,8 @@ pub struct GameAssets {
     pub shadow: Handle<ColorMaterial>,
     pub glow: Handle<ColorMaterial>,
     pub trail: Handle<ColorMaterial>,
+    /// Drifting specks of the biomes (pollen, dust, embers), in the order of [`Biome::ALL`].
+    motes: [Handle<ColorMaterial>; 3],
     /// Colors of the particles an enemy kind bursts into.
     particles: [Handle<ColorMaterial>; 6],
 }
@@ -78,6 +80,10 @@ impl GameAssets {
             EnemyKind::Bat => self.particles[4].clone(),
             EnemyKind::Warlock => self.particles[5].clone(),
         }
+    }
+
+    pub fn mote(&self, biome: Biome) -> Handle<ColorMaterial> {
+        self.motes[biome as usize].clone()
     }
 
     pub fn ground(&self, biome: Biome) -> Handle<Image> {
@@ -175,6 +181,11 @@ fn create_assets(
         shadow: mat(Color::srgba(0.0, 0.0, 0.02, 0.38)),
         glow: mat(Color::srgba(1.0, 0.82, 0.45, 0.07)),
         trail: mat(Color::srgba(0.66, 0.50, 1.0, 0.55)),
+        motes: [
+            mat(Color::srgb(0.80, 0.95, 0.45)),
+            mat(Color::srgb(0.62, 0.68, 0.90)),
+            mat(Color::srgb(1.0, 0.52, 0.14)),
+        ],
         particles: [
             mat(Color::srgb(0.30, 0.50, 0.27)),
             mat(Color::srgb(0.83, 0.80, 0.82)),

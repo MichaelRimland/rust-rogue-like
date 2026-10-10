@@ -24,7 +24,7 @@ impl Plugin for WorldPlugin {
             )
             .add_systems(
                 Update,
-                (sync_biome, follow_player, recycle_decor)
+                (sync_biome, follow_player, recycle_decor, drift_motes)
                     .chain()
                     .after(GameSet::Movement)
                     .before(GameSet::Combat)
@@ -42,6 +42,18 @@ const CAMERA_FOLLOW_SPEED: f32 = 8.0;
 
 #[derive(Component)]
 struct Decor;
+
+/// A drifting speck: pollen in the forest, dust in the crypt, rising embers in the inferno.
+#[derive(Component)]
+struct Mote {
+    velocity: Vec2,
+    lifetime: f32,
+    max_lifetime: f32,
+    size: f32,
+}
+
+/// Most motes alive at the same time.
+const MAX_MOTES: usize = 140;
 
 /// The look the world currently has. Follows the dungeon floor; endless mode stays in
 /// the forest.
@@ -231,5 +243,85 @@ fn recycle_decor(
         } else if offset.y < -DECOR_HALF_EXTENT.y {
             transform.translation.y += size.y;
         }
+    }
+}
+
+/// A cheap random number in `[0, 1)` for purely cosmetic effects. It deliberately does not
+/// touch the game's seeded RNG, so ambience never changes how a run plays out.
+fn cosmetic_random(state: &mut u32) -> f32 {
+    *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+    (*state >> 8) as f32 / (1u32 << 24) as f32
+}
+
+/// Spawns, moves and fades the drifting motes around the camera.
+fn drift_motes(
+    mut commands: Commands,
+    time: Res<Time>,
+    assets: Res<GameAssets>,
+    biome: Res<CurrentBiome>,
+    camera: Single<&Transform, (With<Camera2d>, Without<Mote>)>,
+    mut motes: Query<(Entity, &mut Transform, &mut Mote)>,
+    mut state: Local<u32>,
+    mut owed: Local<f32>,
+) {
+    let dt = time.delta_secs();
+    let mut count = 0;
+    for (entity, mut transform, mut mote) in &mut motes {
+        mote.lifetime -= dt;
+        if mote.lifetime <= 0.0 {
+            commands.entity(entity).try_despawn();
+            continue;
+        }
+        count += 1;
+        let delta = mote.velocity * dt;
+        transform.translation.x += delta.x;
+        transform.translation.y += delta.y;
+        // Grow in, shrink out: a gentle twinkle without needing per-entity alpha.
+        let t = 1.0 - mote.lifetime / mote.max_lifetime;
+        let size = mote.size * (t * std::f32::consts::PI).sin();
+        transform.scale = Vec3::new(size, size, 1.0);
+    }
+
+    let rate = match biome.0 {
+        Biome::Forest => 5.0,
+        Biome::Crypt => 4.0,
+        Biome::Inferno => 12.0,
+    };
+    *owed += rate * dt;
+    while *owed >= 1.0 && count < MAX_MOTES {
+        *owed -= 1.0;
+        count += 1;
+        let mut roll = || cosmetic_random(&mut state);
+        let center = camera.translation.truncate();
+        let position = center + Vec2::new((roll() - 0.5) * 1500.0, (roll() - 0.5) * 900.0);
+        let (velocity, life, size) = match biome.0 {
+            Biome::Forest => (
+                Vec2::new((roll() - 0.5) * 18.0, 4.0 + roll() * 10.0),
+                4.0 + roll() * 2.5,
+                1.6 + roll() * 1.0,
+            ),
+            Biome::Crypt => (
+                Vec2::new((roll() - 0.5) * 10.0, 3.0 + roll() * 8.0),
+                5.0 + roll() * 3.0,
+                1.2 + roll() * 0.9,
+            ),
+            Biome::Inferno => (
+                Vec2::new((roll() - 0.5) * 26.0, 45.0 + roll() * 55.0),
+                2.0 + roll() * 1.5,
+                1.4 + roll() * 1.3,
+            ),
+        };
+        commands.spawn((
+            Mote {
+                velocity,
+                lifetime: life,
+                max_lifetime: life,
+                size,
+            },
+            Mesh2d(assets.circle.clone()),
+            MeshMaterial2d(assets.mote(biome.0)),
+            Transform::from_xyz(position.x, position.y, 4.5).with_scale(Vec3::ZERO),
+            DespawnOnExit(AppState::InGame),
+        ));
     }
 }

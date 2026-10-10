@@ -88,6 +88,11 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   sprites do not look machine-made. In game: soft shadows under characters, a warm light under
   the wizard, bolt trails, white hit flash, a vignette and a faint per-biome color wash
   (`ui/ambience.rs`; keep wash colors dark, blending is in linear light), gradient HUD bars.
+- Ambience: drifting motes per biome (`drift_motes` in `world.rs`: pollen, dust, rising embers;
+  cosmetic RNG so runs stay reproducible). The main menu has clickable panels (`MenuChoice`
+  message, keys 1/2/3 do the same) and a wizard portrait. Note: the first main menu appears
+  before `GameAssets` exists (initial state transition runs before PreStartup commands apply),
+  so anything needing assets must be created later, see `place_portrait`.
 - Biomes: `Biome` / `biome_for_floor` in `logic/dungeon.rs` (floor 1 crypt, floor 2 forest, floor 3 inferno; endless is forest). Each has
   its own ground tile, decoration set (`assets.rs`) and wall colors (`spawn_walls`);
   `sync_biome` in `world.rs` re-dresses the world when the floor changes. Endless stays forest.

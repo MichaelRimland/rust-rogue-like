@@ -3,10 +3,12 @@
 use bevy::prelude::*;
 
 use super::{
-    ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, TEXT_COLOR, centered_column, format_time, label,
+    ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, PANEL_COLOR, TEXT_COLOR, centered_column,
+    format_time, label,
 };
 use crate::{
     AppState, GamePhase,
+    assets::GameAssets,
     dungeon::{Dungeon, GameMode},
     logic::{
         dungeon::FLOORS,
@@ -20,8 +22,12 @@ pub struct MenusPlugin;
 
 impl Plugin for MenusPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
-            .add_systems(Update, main_menu_input.run_if(in_state(AppState::MainMenu)))
+        app.add_message::<MenuChoice>()
+            .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
+            .add_systems(
+                Update,
+                (main_menu_input, place_portrait).run_if(in_state(AppState::MainMenu)),
+            )
             .add_systems(OnEnter(AppState::Shrine), spawn_shrine)
             .add_systems(Update, shrine_input.run_if(in_state(AppState::Shrine)))
             .add_systems(OnEnter(GamePhase::Paused), spawn_pause_overlay)
@@ -31,6 +37,47 @@ impl Plugin for MenusPlugin {
 }
 
 const CONFIRM_KEYS: [KeyCode; 3] = [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space];
+
+/// What was chosen in the main menu, by key or by mouse.
+#[derive(Message, Debug, Clone, Copy)]
+enum MenuChoice {
+    Dungeon,
+    Endless,
+    Shrine,
+}
+
+/// The wizard shown above the main menu title.
+#[derive(Component)]
+struct MenuPortrait;
+
+/// Shows the wizard above the title (as a world sprite with crisp pixels) and keeps him
+/// centered, wherever the camera was left. The sprite is created here rather than with the
+/// menu because the first menu appears before the game assets exist.
+fn place_portrait(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    camera: Single<&Transform, (With<Camera2d>, Without<MenuPortrait>)>,
+    portrait: Option<Single<&mut Transform, With<MenuPortrait>>>,
+) {
+    let position = camera.translation.truncate() + Vec2::new(0.0, 250.0);
+    match portrait {
+        Some(mut portrait) => {
+            portrait.translation.x = position.x;
+            portrait.translation.y = position.y;
+        }
+        None => {
+            commands.spawn((
+                MenuPortrait,
+                Sprite::from_image(assets.wizard[0].clone()),
+                Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(5.0)),
+                DespawnOnExit(AppState::MainMenu),
+            ));
+        }
+    }
+}
+
+/// Colors of a menu button under the mouse.
+const BUTTON_HOVER: Color = Color::srgba(0.16, 0.18, 0.28, 0.97);
 
 fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
     let meta = &meta.0;
@@ -42,64 +89,151 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
         meta.best_floor,
         format_time(meta.best_time)
     );
+
+    let root = commands
+        .spawn((centered_column(12.0), DespawnOnExit(AppState::MainMenu)))
+        .id();
+
+    // Room for the wizard portrait, which `place_portrait` puts above the title.
     commands.spawn((
-        centered_column(18.0),
-        DespawnOnExit(AppState::MainMenu),
-        children![
-            label("RUST ROGUE-LIKE", 72.0, ACCENT_COLOR),
-            label("Fight through the cursed dungeon.", 22.0, TEXT_COLOR),
-            (Node {
-                height: px(30.0),
-                ..default()
-            },),
-            label("WASD / Arrow keys  -  move", 18.0, MUTED_TEXT_COLOR),
-            label(
-                "Spells cast themselves towards the mouse cursor",
-                18.0,
-                MUTED_TEXT_COLOR
-            ),
-            label(
-                "Space  -  dash      Right mouse  -  blink      (found as upgrades)",
-                18.0,
-                MUTED_TEXT_COLOR
-            ),
-            label(
-                "1 / 2 / 3  -  choose upgrade      Esc  -  pause",
-                18.0,
-                MUTED_TEXT_COLOR
-            ),
-            (Node {
-                height: px(30.0),
-                ..default()
-            },),
-            label("1  -  Dungeon (floors, rooms, bosses)", 26.0, TEXT_COLOR),
-            label("2  -  Endless survival", 26.0, TEXT_COLOR),
-            label("3  -  Shrine (permanent upgrades)", 26.0, TEXT_COLOR),
-            label("Enter / Space  -  Dungeon", 18.0, MUTED_TEXT_COLOR),
-            (Node {
-                height: px(10.0),
-                ..default()
-            },),
-            label(records, 16.0, ACCENT_COLOR),
-        ],
+        Node {
+            height: px(150.0),
+            ..default()
+        },
+        ChildOf(root),
     ));
+    commands.spawn((label("RUST ROGUE-LIKE", 72.0, ACCENT_COLOR), ChildOf(root)));
+    commands.spawn((
+        label("Fight through the cursed dungeon.", 22.0, TEXT_COLOR),
+        ChildOf(root),
+    ));
+    commands.spawn((
+        Node {
+            height: px(10.0),
+            ..default()
+        },
+        ChildOf(root),
+    ));
+
+    menu_button(
+        &mut commands,
+        root,
+        "1",
+        "Dungeon",
+        "Rounds, doors, shops and bosses - three floors to the end boss",
+        MenuChoice::Dungeon,
+    );
+    menu_button(
+        &mut commands,
+        root,
+        "2",
+        "Endless survival",
+        "How long can you last in the cursed forest?",
+        MenuChoice::Endless,
+    );
+    menu_button(
+        &mut commands,
+        root,
+        "3",
+        "Shrine",
+        "Spend soul shards on permanent upgrades",
+        MenuChoice::Shrine,
+    );
+
+    for (text, size, color) in [
+        (records, 16.0, ACCENT_COLOR),
+        (
+            "WASD move  -  mouse aims  -  Space dash  -  right mouse blink  -  Esc pause"
+                .to_string(),
+            15.0,
+            MUTED_TEXT_COLOR,
+        ),
+    ] {
+        commands.spawn((label(text, size, color), ChildOf(root)));
+    }
+}
+
+/// One clickable menu panel; the number key does the same thing.
+fn menu_button(
+    commands: &mut Commands,
+    parent: Entity,
+    key: &str,
+    title: &str,
+    subtitle: &str,
+    choice: MenuChoice,
+) {
+    commands
+        .spawn((
+            Node {
+                width: px(560.0),
+                padding: UiRect::axes(px(20.0), px(10.0)),
+                border: UiRect::all(px(2.0)),
+                border_radius: BorderRadius::all(px(8.0)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(2.0),
+                ..default()
+            },
+            BackgroundColor(PANEL_COLOR),
+            BorderColor::all(ACCENT_COLOR),
+            ChildOf(parent),
+            children![
+                label(format!("[{key}]  {title}"), 26.0, TEXT_COLOR),
+                label(subtitle.to_string(), 16.0, MUTED_TEXT_COLOR),
+            ],
+        ))
+        .observe(
+            move |_click: On<PointerClick>, mut picks: MessageWriter<MenuChoice>| {
+                picks.write(choice);
+            },
+        )
+        .observe(
+            |over: On<PointerOver>,
+             mut buttons: Query<(&mut BackgroundColor, &mut BorderColor)>| {
+                if let Ok((mut background, mut border)) = buttons.get_mut(over.event_target()) {
+                    background.0 = BUTTON_HOVER;
+                    border.set_all(TEXT_COLOR);
+                }
+            },
+        )
+        .observe(
+            |out: On<PointerOut>, mut buttons: Query<(&mut BackgroundColor, &mut BorderColor)>| {
+                if let Ok((mut background, mut border)) = buttons.get_mut(out.event_target()) {
+                    background.0 = PANEL_COLOR;
+                    border.set_all(ACCENT_COLOR);
+                }
+            },
+        );
 }
 
 fn main_menu_input(
     keys: Res<ButtonInput<KeyCode>>,
+    mut clicks: MessageReader<MenuChoice>,
     mut mode: ResMut<GameMode>,
     mut next: ResMut<NextState<AppState>>,
 ) {
-    if keys.any_just_pressed([KeyCode::Digit3, KeyCode::Numpad3]) {
-        next.set(AppState::Shrine);
+    let from_keys = if keys.any_just_pressed([KeyCode::Digit3, KeyCode::Numpad3]) {
+        Some(MenuChoice::Shrine)
     } else if keys.any_just_pressed([KeyCode::Digit2, KeyCode::Numpad2]) {
-        *mode = GameMode::Endless;
-        next.set(AppState::InGame);
+        Some(MenuChoice::Endless)
     } else if keys.any_just_pressed([KeyCode::Digit1, KeyCode::Numpad1])
         || keys.any_just_pressed(CONFIRM_KEYS)
     {
-        *mode = GameMode::Dungeon;
-        next.set(AppState::InGame);
+        Some(MenuChoice::Dungeon)
+    } else {
+        None
+    };
+    match clicks.read().last().copied().or(from_keys) {
+        Some(MenuChoice::Shrine) => next.set(AppState::Shrine),
+        Some(MenuChoice::Endless) => {
+            *mode = GameMode::Endless;
+            next.set(AppState::InGame);
+        }
+        Some(MenuChoice::Dungeon) => {
+            *mode = GameMode::Dungeon;
+            next.set(AppState::InGame);
+        }
+        None => {}
     }
 }
 
