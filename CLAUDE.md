@@ -48,7 +48,7 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   modifier is an `Upgrade` with levels and caps, nothing is guaranteed, luck decides the build.
 - Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,
-  squash animation on hit, death particles, cap of 1 500 enemies.
+  squash animation on hit, death particles, cap of 500 enemies (the F4 stress test bypasses it).
 - Weapons: Arcane Missile (start weapon, fires towards the mouse cursor, volley count, pierce),
   Holy Aura (damage ticks in a circle), Orbiting Runes (rotating hexagons).
 - Progression: XP gems with magnet pickup, quadratic XP curve, stacked level-ups,

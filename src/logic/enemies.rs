@@ -30,25 +30,25 @@ impl EnemyKind {
     pub fn archetype(self) -> EnemyArchetype {
         match self {
             EnemyKind::Goblin => EnemyArchetype {
-                health: 10.0,
+                health: 16.0,
                 speed: 95.0,
                 radius: 10.0,
-                contact_dps: 10.0,
-                xp: 1,
+                contact_dps: 12.0,
+                xp: 3,
             },
             EnemyKind::Skeleton => EnemyArchetype {
-                health: 22.0,
+                health: 40.0,
                 speed: 70.0,
                 radius: 12.0,
-                contact_dps: 15.0,
-                xp: 2,
+                contact_dps: 18.0,
+                xp: 5,
             },
             EnemyKind::Ogre => EnemyArchetype {
-                health: 90.0,
+                health: 160.0,
                 speed: 45.0,
                 radius: 22.0,
-                contact_dps: 28.0,
-                xp: 8,
+                contact_dps: 34.0,
+                xp: 18,
             },
         }
     }

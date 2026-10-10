@@ -50,19 +50,27 @@ impl Experience {
     }
 }
 
+/// Shortest pause between two spawn waves.
+const MIN_SPAWN_INTERVAL: f32 = 0.7;
+/// Most enemies a single wave may contain.
+const MAX_SPAWN_BATCH: u32 = 10;
+
 /// Seconds between two enemy spawn waves at a given point of the run.
+///
+/// Few, tough enemies are the goal, so waves stay far apart and the interval never
+/// shrinks below [`MIN_SPAWN_INTERVAL`].
 pub fn spawn_interval(elapsed_secs: f32) -> f32 {
-    (1.4 * 0.5f32.powf(elapsed_secs / 150.0)).max(0.25)
+    (2.0 * 0.5f32.powf(elapsed_secs / 240.0)).max(MIN_SPAWN_INTERVAL)
 }
 
 /// Number of enemies spawned per wave.
 pub fn spawn_batch_size(elapsed_secs: f32) -> u32 {
-    1 + (elapsed_secs / 25.0) as u32
+    (1 + (elapsed_secs / 60.0) as u32).min(MAX_SPAWN_BATCH)
 }
 
 /// Health multiplier applied to newly spawned enemies.
 pub fn enemy_health_multiplier(elapsed_secs: f32) -> f32 {
-    1.0 + elapsed_secs / 100.0
+    1.0 + elapsed_secs / 50.0
 }
 
 #[cfg(test)]
@@ -92,8 +100,9 @@ mod tests {
     #[test]
     fn difficulty_ramps_up_over_time() {
         assert!(spawn_interval(300.0) < spawn_interval(0.0));
-        assert!(spawn_interval(10_000.0) >= 0.25);
+        assert!(spawn_interval(10_000.0) >= MIN_SPAWN_INTERVAL);
         assert!(spawn_batch_size(120.0) > spawn_batch_size(0.0));
+        assert!(spawn_batch_size(100_000.0) <= MAX_SPAWN_BATCH);
         assert!(enemy_health_multiplier(200.0) > enemy_health_multiplier(0.0));
     }
 }

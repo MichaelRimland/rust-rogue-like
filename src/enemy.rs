@@ -38,7 +38,7 @@ impl Plugin for EnemyPlugin {
 const GRID_CELL_SIZE: f32 = 64.0;
 /// Radius of the largest enemy; used to widen grid queries so no overlap is missed.
 pub const MAX_ENEMY_RADIUS: f32 = 22.0;
-const MAX_ENEMIES: usize = 1_500;
+const MAX_ENEMIES: usize = 500;
 const SPAWN_DISTANCE: (f32, f32) = (760.0, 860.0);
 /// Enemies farther away than this are moved back towards the player.
 const WRAP_DISTANCE: f32 = 1_300.0;
