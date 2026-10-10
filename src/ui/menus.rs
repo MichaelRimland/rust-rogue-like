@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 use super::{
-    ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, PANEL_COLOR, TEXT_COLOR, centered_column,
-    format_time, label,
+    ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, TEXT_COLOR, centered_column, format_time, label,
+    panel_image,
 };
 use crate::{
     AppState, GamePhase,
@@ -76,10 +76,12 @@ fn place_portrait(
     }
 }
 
-/// Colors of a menu button under the mouse.
-const BUTTON_HOVER: Color = Color::srgba(0.16, 0.18, 0.28, 0.97);
+/// Tint of a menu button frame under the mouse (above 1.0, so it brightens).
+const BUTTON_HOVER: Color = Color::srgb(1.5, 1.4, 1.1);
 
-fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
+fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>, asset_server: Res<AssetServer>) {
+    // `GameAssets` does not exist yet at the first menu, so load the frame directly.
+    let panel: Handle<Image> = asset_server.load("sprites/panel.png");
     let meta = &meta.0;
     let records = format!(
         "Shards {}   Runs {}   Victories {}   Best floor {}   Best survival {}",
@@ -97,7 +99,7 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
     // Room for the wizard portrait, which `place_portrait` puts above the title.
     commands.spawn((
         Node {
-            height: px(150.0),
+            height: px(112.0),
             ..default()
         },
         ChildOf(root),
@@ -118,14 +120,16 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
     menu_button(
         &mut commands,
         root,
+        &panel,
         "1",
         "Dungeon",
-        "Rounds, doors, shops and bosses - three floors to the end boss",
+        "Rounds, shops and bosses - three floors to the end boss",
         MenuChoice::Dungeon,
     );
     menu_button(
         &mut commands,
         root,
+        &panel,
         "2",
         "Endless survival",
         "How long can you last in the cursed forest?",
@@ -134,6 +138,7 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
     menu_button(
         &mut commands,
         root,
+        &panel,
         "3",
         "Shrine",
         "Spend soul shards on permanent upgrades",
@@ -157,6 +162,7 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>) {
 fn menu_button(
     commands: &mut Commands,
     parent: Entity,
+    panel: &Handle<Image>,
     key: &str,
     title: &str,
     subtitle: &str,
@@ -165,17 +171,17 @@ fn menu_button(
     commands
         .spawn((
             Node {
-                width: px(560.0),
-                padding: UiRect::axes(px(20.0), px(10.0)),
-                border: UiRect::all(px(2.0)),
-                border_radius: BorderRadius::all(px(8.0)),
+                width: px(700.0),
+                height: px(112.0),
+                flex_shrink: 0.0,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::axes(px(36.0), px(16.0)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 row_gap: px(2.0),
                 ..default()
             },
-            BackgroundColor(PANEL_COLOR),
-            BorderColor::all(ACCENT_COLOR),
+            panel_image(panel.clone()),
             ChildOf(parent),
             children![
                 label(format!("[{key}]  {title}"), 26.0, TEXT_COLOR),
@@ -188,22 +194,17 @@ fn menu_button(
             },
         )
         .observe(
-            |over: On<PointerOver>,
-             mut buttons: Query<(&mut BackgroundColor, &mut BorderColor)>| {
-                if let Ok((mut background, mut border)) = buttons.get_mut(over.event_target()) {
-                    background.0 = BUTTON_HOVER;
-                    border.set_all(TEXT_COLOR);
+            |over: On<PointerOver>, mut buttons: Query<&mut ImageNode>| {
+                if let Ok(mut button) = buttons.get_mut(over.event_target()) {
+                    button.color = BUTTON_HOVER;
                 }
             },
         )
-        .observe(
-            |out: On<PointerOut>, mut buttons: Query<(&mut BackgroundColor, &mut BorderColor)>| {
-                if let Ok((mut background, mut border)) = buttons.get_mut(out.event_target()) {
-                    background.0 = PANEL_COLOR;
-                    border.set_all(ACCENT_COLOR);
-                }
-            },
-        );
+        .observe(|out: On<PointerOut>, mut buttons: Query<&mut ImageNode>| {
+            if let Ok(mut button) = buttons.get_mut(out.event_target()) {
+                button.color = Color::WHITE;
+            }
+        });
 }
 
 fn main_menu_input(

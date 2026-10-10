@@ -87,6 +87,7 @@ fn rebuild_level_up_screen(
                 Node {
                     width: px(320.0),
                     min_height: px(290.0),
+                    flex_shrink: 0.0,
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     row_gap: px(10.0),
