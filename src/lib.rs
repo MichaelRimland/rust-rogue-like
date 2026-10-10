@@ -9,6 +9,7 @@ pub mod logic;
 
 mod animation;
 mod assets;
+mod autoplay;
 mod bench;
 mod combat;
 mod enemy;
@@ -77,6 +78,7 @@ impl Plugin for GamePlugin {
                 skills::SkillsPlugin,
                 ui::UiPlugin,
                 bench::BenchPlugin,
+                autoplay::AutoplayPlugin,
             ));
     }
 }

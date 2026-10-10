@@ -50,9 +50,9 @@ const BURST_DISTANCE: (f32, f32) = (250.0, 900.0);
 const BURST_KIND_TIME: f32 = 600.0;
 
 #[derive(Resource, Default)]
-struct Bench {
+pub(crate) struct Bench {
     overlay: bool,
-    god_mode: bool,
+    pub(crate) god_mode: bool,
 }
 
 #[derive(Component)]
@@ -129,14 +129,29 @@ fn spawn_burst(
         return;
     };
     bench.god_mode = true;
+    spawn_enemy_burst(
+        &mut commands,
+        &assets,
+        &mut rng,
+        player.translation.truncate(),
+        BURST_SIZE,
+    );
+}
 
-    let center = player.translation.truncate();
-    for _ in 0..BURST_SIZE {
+/// Spawns `count` enemies of every kind in a ring around `center`.
+pub(crate) fn spawn_enemy_burst(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    rng: &mut GameRng,
+    center: Vec2,
+    count: usize,
+) {
+    for _ in 0..count {
         let kind = pick_enemy_kind(&mut rng.0, BURST_KIND_TIME);
         let angle = rng.0.range_f32(0.0, TAU);
         let distance = rng.0.range_f32(BURST_DISTANCE.0, BURST_DISTANCE.1);
         let position = center + Vec2::from_angle(angle) * distance;
-        spawn_enemy(&mut commands, &assets, kind, position, 1.0);
+        spawn_enemy(commands, assets, kind, position, 1.0);
     }
 }
 

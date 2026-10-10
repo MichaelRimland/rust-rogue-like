@@ -109,7 +109,8 @@ web/index.html      page for the WASM build
 ## Roadmap
 
 - [x] **M1 core loop** – done
-- [ ] **M2 performance** – benchmark scene, profiling, pooling, goal: 5 000 enemies at 60 FPS
+- [x] **M2 performance** – done: `--autoplay SECS --enemies N` benchmark (`autoplay.rs`),
+      5 000 enemies at ~230 FPS, numbers in README
 - [ ] **M3 dungeon** – generated floors of rooms (arena, shop, treasure, elite), doors open
       after a wave, boss at the end of a floor
 - [ ] **M4 content** – weapons/enemies data-driven from RON files, weapon evolutions
