@@ -61,8 +61,12 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   3 weighted upgrade choices (new weapons weighted higher), caps per upgrade.
 - UI: main menu, HUD (XP bar, HP bar, level/time/kills), level-up cards, pause overlay,
   game over screen with seed.
-- Visuals: no sprite assets yet – unit meshes (circle, hexagon, rhombus, triangle) scaled
-  via `Transform`, colors in `assets.rs`. Endless forest floor via wrapping decor.
+- Visuals: pixel-art sprites in `assets/sprites/` (32x32 characters with 2 walk frames, 16x16
+  items), drawn by `tools/draw_sprites.py` with the fixed palette in `tools/palette.hex`.
+  Style rules: `assets/STYLE.md`. Sprites are shown at `SPRITE_SCALE` (2x, integer so pixels stay
+  square), nearest-neighbour sampling. Effects (aura, particles, burst ring) still use a circle
+  mesh. Endless forest floor via wrapping decor. AI-generated art can replace any sprite file;
+  run it through `tools/process_sprites.py`.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
 
 ## File map

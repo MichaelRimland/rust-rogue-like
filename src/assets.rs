@@ -1,13 +1,15 @@
-//! Shared meshes and materials.
+//! Shared sprites, meshes and materials.
 //!
-//! Milestone 1 uses simple vector shapes instead of sprites, so every entity of a kind
-//! shares the same mesh and material handle. Sizes are applied through `Transform::scale`
-//! on unit-sized meshes. Swapping in pixel-art sprites later only touches this file and
-//! the spawn functions.
+//! Characters, projectiles, loot and decoration are pixel-art sprites (`assets/sprites`,
+//! drawn by `tools/draw_sprites.py`). Effects that are just soft shapes (aura, particles,
+//! impact rings) still use a shared unit circle mesh.
 
 use bevy::prelude::*;
 
 use crate::logic::enemies::EnemyKind;
+
+/// Sprites are shown at this multiple of their pixel size (an integer keeps pixels square).
+pub const SPRITE_SCALE: f32 = 2.0;
 
 pub struct AssetsPlugin;
 
@@ -21,29 +23,26 @@ impl Plugin for AssetsPlugin {
 pub struct GameAssets {
     /// Circle with radius 1.
     pub circle: Handle<Mesh>,
-    /// Hexagon with circumradius 1.
-    pub hexagon: Handle<Mesh>,
-    /// Rhombus with diagonals 1 x 1.6.
-    pub diamond: Handle<Mesh>,
-    /// Triangle pointing up, roughly 1 unit tall.
-    pub triangle: Handle<Mesh>,
 
-    pub player_robe: Handle<ColorMaterial>,
-    pub player_hat: Handle<ColorMaterial>,
-    pub goblin: Handle<ColorMaterial>,
-    pub skeleton: Handle<ColorMaterial>,
-    pub ogre: Handle<ColorMaterial>,
-    pub missile: Handle<ColorMaterial>,
+    /// Two walk frames per character.
+    pub wizard: [Handle<Image>; 2],
+    goblin: [Handle<Image>; 2],
+    skeleton: [Handle<Image>; 2],
+    ogre: [Handle<Image>; 2],
+
+    pub missile: Handle<Image>,
+    pub rune: Handle<Image>,
+    gems: [Handle<Image>; 3],
+    /// Decoration sprites paired with their spawn weight.
+    pub decor: Vec<(Handle<Image>, f32)>,
+
     pub aura: Handle<ColorMaterial>,
-    pub rune: Handle<ColorMaterial>,
-    pub gem_small: Handle<ColorMaterial>,
-    pub gem_medium: Handle<ColorMaterial>,
-    pub gem_large: Handle<ColorMaterial>,
-    pub decor: Vec<Handle<ColorMaterial>>,
+    /// Colors of the particles an enemy kind bursts into.
+    particles: [Handle<ColorMaterial>; 3],
 }
 
 impl GameAssets {
-    pub fn enemy_material(&self, kind: EnemyKind) -> Handle<ColorMaterial> {
+    pub fn enemy_frames(&self, kind: EnemyKind) -> [Handle<Image>; 2] {
         match kind {
             EnemyKind::Goblin => self.goblin.clone(),
             EnemyKind::Skeleton => self.skeleton.clone(),
@@ -51,47 +50,62 @@ impl GameAssets {
         }
     }
 
-    pub fn gem_material(&self, xp: u32) -> Handle<ColorMaterial> {
+    pub fn enemy_material(&self, kind: EnemyKind) -> Handle<ColorMaterial> {
+        match kind {
+            EnemyKind::Goblin => self.particles[0].clone(),
+            EnemyKind::Skeleton => self.particles[1].clone(),
+            EnemyKind::Ogre => self.particles[2].clone(),
+        }
+    }
+
+    /// The gem sprite for an experience value: small, medium or large.
+    pub fn gem_image(&self, xp: u32) -> Handle<Image> {
         match xp {
-            0..=1 => self.gem_small.clone(),
-            2..=4 => self.gem_medium.clone(),
-            _ => self.gem_large.clone(),
+            0..=3 => self.gems[0].clone(),
+            4..=9 => self.gems[1].clone(),
+            _ => self.gems[2].clone(),
         }
     }
 }
 
 fn create_assets(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let sprite = |name: &str| asset_server.load(format!("sprites/{name}.png"));
+    let frames = |name: &str| [sprite(&format!("{name}_0")), sprite(&format!("{name}_1"))];
     let mut mat = |color: Color| materials.add(color);
 
     let assets = GameAssets {
         circle: meshes.add(Circle::new(1.0)),
-        hexagon: meshes.add(RegularPolygon::new(1.0, 6)),
-        diamond: meshes.add(Rhombus::new(1.0, 1.6)),
-        triangle: meshes.add(Triangle2d::new(
-            Vec2::new(0.0, 0.7),
-            Vec2::new(-0.5, -0.3),
-            Vec2::new(0.5, -0.3),
-        )),
 
-        player_robe: mat(crate::player::ROBE_COLOR),
-        player_hat: mat(Color::srgb(0.20, 0.22, 0.60)),
-        goblin: mat(Color::srgb(0.35, 0.70, 0.25)),
-        skeleton: mat(Color::srgb(0.88, 0.86, 0.78)),
-        ogre: mat(Color::srgb(0.60, 0.30, 0.22)),
-        missile: mat(Color::srgb(0.75, 0.55, 1.0)),
-        aura: mat(Color::srgba(1.0, 0.85, 0.35, 0.16)),
-        rune: mat(Color::srgb(0.55, 0.85, 0.95)),
-        gem_small: mat(Color::srgb(0.30, 0.75, 1.0)),
-        gem_medium: mat(Color::srgb(0.30, 1.0, 0.55)),
-        gem_large: mat(Color::srgb(1.0, 0.35, 0.45)),
+        wizard: frames("wizard"),
+        goblin: frames("goblin"),
+        skeleton: frames("skeleton"),
+        ogre: frames("ogre"),
+
+        missile: sprite("missile"),
+        rune: sprite("rune"),
+        gems: [
+            sprite("gem_small"),
+            sprite("gem_medium"),
+            sprite("gem_large"),
+        ],
         decor: vec![
-            mat(Color::srgb(0.10, 0.15, 0.11)),
-            mat(Color::srgb(0.12, 0.17, 0.10)),
-            mat(Color::srgb(0.14, 0.14, 0.13)),
+            (sprite("decor_bush"), 3.0),
+            (sprite("decor_tuft"), 3.0),
+            (sprite("decor_stone"), 2.0),
+            (sprite("decor_mushroom"), 1.0),
+            (sprite("decor_bones"), 1.0),
+        ],
+
+        aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),
+        particles: [
+            mat(Color::srgb(0.30, 0.50, 0.27)),
+            mat(Color::srgb(0.83, 0.80, 0.82)),
+            mat(Color::srgb(0.48, 0.29, 0.16)),
         ],
     };
     commands.insert_resource(assets);

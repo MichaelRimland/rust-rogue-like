@@ -2,7 +2,13 @@
 
 use bevy::prelude::*;
 
-use crate::{AppState, GameSet, assets::GameAssets, run::Stats, skills::MovementSkills};
+use crate::{
+    AppState, GameSet,
+    animation::WalkAnimation,
+    assets::{GameAssets, SPRITE_SCALE},
+    run::Stats,
+    skills::MovementSkills,
+};
 
 pub struct PlayerPlugin;
 
@@ -47,20 +53,11 @@ impl Health {
     }
 }
 
-pub const ROBE_COLOR: Color = Color::srgb(0.30, 0.35, 0.85);
 const HURT_COLOR: Color = Color::srgb(1.0, 0.35, 0.35);
 
-fn spawn_player(
-    mut commands: Commands,
-    assets: Res<GameAssets>,
-    stats: Res<Stats>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    // The previous run may have ended while the robe was tinted red.
-    if let Some(mut robe) = materials.get_mut(&assets.player_robe) {
-        robe.color = ROBE_COLOR;
-    }
-
+fn spawn_player(mut commands: Commands, assets: Res<GameAssets>, stats: Res<Stats>) {
+    let mut walk = WalkAnimation::new(assets.wizard.clone(), 0);
+    walk.playing = false;
     commands.spawn((
         Player {
             facing: Vec2::X,
@@ -71,17 +68,10 @@ fn spawn_player(
             current: stats.max_health,
             max: stats.max_health,
         },
-        Mesh2d(assets.circle.clone()),
-        MeshMaterial2d(assets.player_robe.clone()),
-        Transform::from_xyz(0.0, 0.0, 3.0).with_scale(Vec3::splat(PLAYER_RADIUS)),
+        Sprite::from_image(assets.wizard[0].clone()),
+        walk,
+        Transform::from_xyz(0.0, 0.0, 3.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
-        // The pointy wizard hat. Child transforms are relative to the (scaled) parent,
-        // so these values are in "player radii".
-        children![(
-            Mesh2d(assets.triangle.clone()),
-            MeshMaterial2d(assets.player_hat.clone()),
-            Transform::from_xyz(0.0, 0.55, 0.1).with_scale(Vec3::splat(1.3)),
-        )],
     ));
 }
 
@@ -109,19 +99,25 @@ pub(crate) fn move_player(
     keys: Res<ButtonInput<KeyCode>>,
     stats: Res<Stats>,
     skills: Res<MovementSkills>,
-    player: Single<(&mut Transform, &mut Player)>,
+    player: Single<(&mut Transform, &mut Player, &mut Sprite, &mut WalkAnimation)>,
 ) {
-    let (mut transform, mut player) = player.into_inner();
+    let (mut transform, mut player, mut sprite, mut walk) = player.into_inner();
 
     // A dash replaces the normal movement until it ends.
-    let (velocity, facing) = match skills.dash_velocity() {
-        Some(velocity) => (velocity, velocity.normalize_or_zero()),
-        None => match input_direction(&keys) {
-            Some(direction) => (direction * stats.move_speed, direction),
-            None => return,
-        },
+    let movement = match skills.dash_velocity() {
+        Some(velocity) => Some((velocity, velocity.normalize_or_zero())),
+        None => input_direction(&keys).map(|direction| (direction * stats.move_speed, direction)),
     };
+    walk.playing = movement.is_some();
+    let Some((velocity, facing)) = movement else {
+        return;
+    };
+
     player.facing = facing;
+    // The sprite looks to the right by default.
+    if facing.x.abs() > 0.1 {
+        sprite.flip_x = facing.x < 0.0;
+    }
     let delta = velocity * time.delta_secs();
     transform.translation.x += delta.x;
     transform.translation.y += delta.y;
@@ -132,22 +128,15 @@ fn regenerate(time: Res<Time>, stats: Res<Stats>, mut health: Single<&mut Health
     health.current = (health.current + stats.regen_per_sec * time.delta_secs()).min(health.max);
 }
 
-fn update_hurt_tint(
-    time: Res<Time>,
-    assets: Res<GameAssets>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut player: Single<&mut Player>,
-) {
+fn update_hurt_tint(time: Res<Time>, player: Single<(&mut Player, &mut Sprite)>) {
+    let (mut player, mut sprite) = player.into_inner();
     player.hurt_timer = (player.hurt_timer - time.delta_secs()).max(0.0);
     let is_hurt = player.hurt_timer > 0.0;
     if is_hurt == player.tinted {
         return;
     }
     player.tinted = is_hurt;
-    // The robe material is used by the player only, so tinting it is safe.
-    if let Some(mut material) = materials.get_mut(&assets.player_robe) {
-        material.color = if is_hurt { HURT_COLOR } else { ROBE_COLOR };
-    }
+    sprite.color = if is_hurt { HURT_COLOR } else { Color::WHITE };
 }
 
 /// Marks the player as hurt (called by the combat code).

@@ -7,6 +7,7 @@
 
 pub mod logic;
 
+mod animation;
 mod assets;
 mod bench;
 mod combat;
@@ -63,6 +64,7 @@ impl Plugin for GamePlugin {
             )
             .add_plugins((
                 assets::AssetsPlugin,
+                animation::AnimationPlugin,
                 world::WorldPlugin,
                 run::RunPlugin,
                 player::PlayerPlugin,

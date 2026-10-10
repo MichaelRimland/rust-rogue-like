@@ -7,12 +7,12 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     AppState, GameSet,
-    assets::GameAssets,
+    assets::{GameAssets, SPRITE_SCALE},
     logic::{
         skills::{Cooldown, limit_distance},
         stats::DashStats,
     },
-    player::{PLAYER_RADIUS, Player, input_direction},
+    player::{Player, input_direction},
     run::Stats,
     world::cursor_world_position,
 };
@@ -39,6 +39,8 @@ const BLINK_INVULNERABLE_SECS: f32 = 0.3;
 /// Distance between the afterimages left along a blink path.
 const AFTERIMAGE_SPACING: f32 = 36.0;
 const AFTERIMAGE_SECS: f32 = 0.25;
+/// Tint of the translucent afterimages (arcane purple).
+const AFTERIMAGE_COLOR: Color = Color::srgba(0.56, 0.42, 0.94, 0.6);
 
 #[derive(Resource)]
 pub struct MovementSkills {
@@ -129,7 +131,12 @@ fn trigger_skills(
         let steps = (origin.distance(target) / AFTERIMAGE_SPACING) as u32;
         for step in 0..=steps {
             let t = step as f32 / steps.max(1) as f32;
-            spawn_afterimage(&mut commands, &assets, origin.lerp(target, t));
+            spawn_afterimage(
+                &mut commands,
+                &assets,
+                origin.lerp(target, t),
+                player.facing.x < 0.0,
+            );
         }
         transform.translation.x = target.x;
         transform.translation.y = target.y;
@@ -142,21 +149,29 @@ fn dash_trail(
     mut commands: Commands,
     assets: Res<GameAssets>,
     skills: Res<MovementSkills>,
-    player: Single<&Transform, With<Player>>,
+    player: Single<(&Transform, &Sprite), With<Player>>,
 ) {
     if skills.dash_velocity().is_some() {
-        spawn_afterimage(&mut commands, &assets, player.translation.truncate());
+        let (transform, sprite) = *player;
+        spawn_afterimage(
+            &mut commands,
+            &assets,
+            transform.translation.truncate(),
+            sprite.flip_x,
+        );
     }
 }
 
-fn spawn_afterimage(commands: &mut Commands, assets: &GameAssets, position: Vec2) {
+fn spawn_afterimage(commands: &mut Commands, assets: &GameAssets, position: Vec2, flip: bool) {
+    let mut sprite = Sprite::from_image(assets.wizard[0].clone());
+    sprite.flip_x = flip;
+    sprite.color = AFTERIMAGE_COLOR;
     commands.spawn((
         Afterimage {
             lifetime: AFTERIMAGE_SECS,
         },
-        Mesh2d(assets.circle.clone()),
-        MeshMaterial2d(assets.player_robe.clone()),
-        Transform::from_xyz(position.x, position.y, 2.9).with_scale(Vec3::splat(PLAYER_RADIUS)),
+        sprite,
+        Transform::from_xyz(position.x, position.y, 2.9).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
     ));
 }
@@ -164,16 +179,16 @@ fn spawn_afterimage(commands: &mut Commands, assets: &GameAssets, position: Vec2
 fn fade_afterimages(
     mut commands: Commands,
     time: Res<Time>,
-    mut images: Query<(Entity, &mut Transform, &mut Afterimage)>,
+    mut images: Query<(Entity, &mut Sprite, &mut Afterimage)>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut transform, mut image) in &mut images {
+    for (entity, mut sprite, mut image) in &mut images {
         image.lifetime -= dt;
         if image.lifetime <= 0.0 {
             commands.entity(entity).try_despawn();
             continue;
         }
         let t = image.lifetime / AFTERIMAGE_SECS;
-        transform.scale = Vec3::splat(PLAYER_RADIUS * t);
+        sprite.color = AFTERIMAGE_COLOR.with_alpha(AFTERIMAGE_COLOR.alpha() * t);
     }
 }

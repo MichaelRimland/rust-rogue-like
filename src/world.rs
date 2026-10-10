@@ -2,7 +2,12 @@
 
 use bevy::prelude::*;
 
-use crate::{AppState, GameSet, assets::GameAssets, player::Player, run::GameRng};
+use crate::{
+    AppState, GameSet,
+    assets::{GameAssets, SPRITE_SCALE},
+    player::Player,
+    run::GameRng,
+};
 
 pub struct WorldPlugin;
 
@@ -53,23 +58,19 @@ fn reset_camera(mut camera: Single<&mut Transform, With<Camera2d>>) {
     camera.translation.y = 0.0;
 }
 
-/// Scatters bushes and stones so the player can see that they are moving.
+/// Scatters bushes, stones and bones so the player can see that they are moving.
 fn spawn_decor(mut commands: Commands, assets: Res<GameAssets>, mut rng: ResMut<GameRng>) {
+    let weights: Vec<f32> = assets.decor.iter().map(|(_, weight)| *weight).collect();
     for _ in 0..DECOR_COUNT {
         let x = rng.0.range_f32(-DECOR_HALF_EXTENT.x, DECOR_HALF_EXTENT.x);
         let y = rng.0.range_f32(-DECOR_HALF_EXTENT.y, DECOR_HALF_EXTENT.y);
-        let size = rng.0.range_f32(3.0, 14.0);
-        let mesh = if rng.0.chance(0.7) {
-            assets.circle.clone()
-        } else {
-            assets.hexagon.clone()
-        };
-        let material = assets.decor[rng.0.below(assets.decor.len())].clone();
+        let index = rng.0.weighted_index(&weights).unwrap_or(0);
+        let mut sprite = Sprite::from_image(assets.decor[index].0.clone());
+        sprite.flip_x = rng.0.chance(0.5);
         commands.spawn((
             Decor,
-            Mesh2d(mesh),
-            MeshMaterial2d(material),
-            Transform::from_xyz(x, y, -10.0).with_scale(Vec3::splat(size)),
+            sprite,
+            Transform::from_xyz(x, y, -10.0).with_scale(Vec3::splat(SPRITE_SCALE)),
             DespawnOnExit(AppState::InGame),
         ));
     }

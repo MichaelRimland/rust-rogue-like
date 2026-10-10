@@ -6,7 +6,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     AppState, GameSet,
-    assets::GameAssets,
+    assets::{GameAssets, SPRITE_SCALE},
     combat::DamageEnemy,
     enemy::{Enemy, EnemyGrid, MAX_ENEMY_RADIUS},
     logic::stats::{AuraStats, MissileStats, RuneStats},
@@ -110,11 +110,14 @@ fn spawn_projectile(
     position: Vec2,
     projectile: Projectile,
 ) {
+    // The sprite points to the right, so rotating by the velocity angle aims it.
+    let rotation = Quat::from_rotation_z(projectile.velocity.to_angle());
     commands.spawn((
         projectile,
-        Mesh2d(assets.circle.clone()),
-        MeshMaterial2d(assets.missile.clone()),
-        Transform::from_xyz(position.x, position.y, 4.0).with_scale(Vec3::splat(MISSILE_RADIUS)),
+        Sprite::from_image(assets.missile.clone()),
+        Transform::from_xyz(position.x, position.y, 4.0)
+            .with_rotation(rotation)
+            .with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
     ));
 }
@@ -244,6 +247,8 @@ fn move_projectiles(
         let delta = projectile.velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;
+        // Chaining changes a bolt's direction mid-flight.
+        transform.rotation = Quat::from_rotation_z(projectile.velocity.to_angle());
     }
 }
 
@@ -518,9 +523,8 @@ fn sync_runes(
     for index in 0..wanted {
         commands.spawn((
             Rune { index },
-            Mesh2d(assets.hexagon.clone()),
-            MeshMaterial2d(assets.rune.clone()),
-            Transform::from_xyz(0.0, 0.0, 3.5).with_scale(Vec3::splat(RuneStats::HIT_RADIUS)),
+            Sprite::from_image(assets.rune.clone()),
+            Transform::from_xyz(0.0, 0.0, 3.5).with_scale(Vec3::splat(SPRITE_SCALE)),
             DespawnOnExit(AppState::InGame),
         ));
     }

@@ -6,7 +6,8 @@ use bevy::prelude::*;
 
 use crate::{
     AppState, GameSet,
-    assets::GameAssets,
+    animation::WalkAnimation,
+    assets::{GameAssets, SPRITE_SCALE},
     logic::{
         enemies::{EnemyKind, pick_enemy_kind},
         progression::{enemy_health_multiplier, spawn_batch_size, spawn_interval},
@@ -118,10 +119,9 @@ pub(crate) fn spawn_enemy(
     health_multiplier: f32,
 ) {
     let base = kind.archetype();
-    let mesh = match kind {
-        EnemyKind::Skeleton => assets.hexagon.clone(),
-        EnemyKind::Goblin | EnemyKind::Ogre => assets.circle.clone(),
-    };
+    let frames = assets.enemy_frames(kind);
+    // Different phases keep a crowd from stepping in unison.
+    let phase = position.x.abs() as u32;
     commands.spawn((
         Enemy {
             kind,
@@ -132,9 +132,9 @@ pub(crate) fn spawn_enemy(
             xp: base.xp,
             hit_flash: 0.0,
         },
-        Mesh2d(mesh),
-        MeshMaterial2d(assets.enemy_material(kind)),
-        Transform::from_xyz(position.x, position.y, 2.0).with_scale(Vec3::splat(base.radius)),
+        Sprite::from_image(frames[0].clone()),
+        WalkAnimation::new(frames, phase),
+        Transform::from_xyz(position.x, position.y, 2.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
     ));
 }
@@ -145,12 +145,12 @@ fn move_enemies(
     time: Res<Time>,
     grid: Res<EnemyGrid>,
     player: Single<&Transform, (With<Player>, Without<Enemy>)>,
-    mut enemies: Query<(Entity, &mut Transform, &Enemy)>,
+    mut enemies: Query<(Entity, &mut Transform, &mut Sprite, &Enemy)>,
 ) {
     let dt = time.delta_secs();
     let target = player.translation.truncate();
 
-    for (entity, mut transform, enemy) in &mut enemies {
+    for (entity, mut transform, mut sprite, enemy) in &mut enemies {
         let position = transform.translation.truncate();
         let to_player = (target - position).normalize_or_zero();
 
@@ -177,6 +177,13 @@ fn move_enemies(
         let delta = velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;
+        // Enemies lower on screen are drawn in front of the ones behind them.
+        transform.translation.z = 2.0 - transform.translation.y * 0.0001;
+        // The sprites look to the right by default.
+        let face_left = to_player.x < 0.0;
+        if to_player.x != 0.0 && sprite.flip_x != face_left {
+            sprite.flip_x = face_left;
+        }
     }
 }
 
@@ -188,7 +195,7 @@ fn animate_hit_flash(time: Res<Time>, mut enemies: Query<(&mut Transform, &mut E
         }
         enemy.hit_flash = (enemy.hit_flash - dt).max(0.0);
         let squash = 1.0 + 0.35 * (enemy.hit_flash / HIT_FLASH_SECS);
-        transform.scale = Vec3::new(enemy.radius * squash, enemy.radius / squash, 1.0);
+        transform.scale = Vec3::new(SPRITE_SCALE * squash, SPRITE_SCALE / squash, 1.0);
     }
 }
 

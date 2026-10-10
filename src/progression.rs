@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     AppState, GamePhase, GameSet,
-    assets::GameAssets,
+    assets::{GameAssets, SPRITE_SCALE},
     logic::stats::{Upgrade, roll_upgrades},
     player::{Health, PLAYER_RADIUS, Player},
     run::{GameRng, Stats, Xp},
@@ -48,15 +48,13 @@ pub struct PendingLevelUps(pub u32);
 pub struct LevelUpChoices(pub Vec<Upgrade>);
 
 pub fn spawn_gem(commands: &mut Commands, assets: &GameAssets, position: Vec2, value: u32) {
-    let size = 5.0 + value.min(8) as f32;
     commands.spawn((
         XpGem {
             value,
             attracted: false,
         },
-        Mesh2d(assets.diamond.clone()),
-        MeshMaterial2d(assets.gem_material(value)),
-        Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(size)),
+        Sprite::from_image(assets.gem_image(value)),
+        Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
     ));
 }
