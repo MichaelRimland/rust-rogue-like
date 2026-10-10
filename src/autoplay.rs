@@ -27,6 +27,7 @@ use crate::{
     logic::dungeon::RoomKind,
     player::Player,
     run::{GameRng, RunStats},
+    save::SaveDisabled,
 };
 
 pub struct AutoplayPlugin;
@@ -37,9 +38,11 @@ impl Plugin for AutoplayPlugin {
             return;
         };
         app.insert_resource(config)
+            .insert_resource(SaveDisabled)
             .init_resource::<AutoplayStats>()
             .add_systems(PreUpdate, autoplay_input.after(InputSystems))
-            .add_systems(Update, autoplay_run.run_if(in_state(AppState::InGame)));
+            .add_systems(Update, autoplay_run.run_if(in_state(AppState::InGame)))
+            .add_systems(Update, capture_scene);
     }
 }
 
@@ -53,6 +56,9 @@ struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
     endless: bool,
+    /// Instead of playing, show a menu screen (`menu` or `shrine`), save the screenshot
+    /// and exit. Handy for checking the UI.
+    scene: Option<String>,
     /// Saves a screenshot of the window to this path after a few seconds of play.
     screenshot: Option<String>,
     screenshot_at: f32,
@@ -72,7 +78,13 @@ impl AutoplayConfig {
             .position(|arg| arg == "--screenshot")
             .and_then(|i| args.get(i + 1))
             .cloned();
+        let scene = args
+            .iter()
+            .position(|arg| arg == "--scene")
+            .and_then(|i| args.get(i + 1))
+            .cloned();
         Some(Self {
+            scene,
             seconds: number("--autoplay")?,
             enemies: number("--enemies").unwrap_or(0.0) as usize,
             endless: args.iter().any(|arg| arg == "--endless"),
@@ -105,6 +117,13 @@ fn autoplay_input(
 ) {
     // Nothing releases the keys we press, so start every frame from a clean slate.
     keys.release_all();
+    if let Some(scene) = &config.scene {
+        // Scene mode only navigates to the requested screen.
+        if *state.get() == AppState::MainMenu && scene == "shrine" {
+            keys.press(KeyCode::Digit3);
+        }
+        return;
+    }
     match state.get() {
         AppState::MainMenu => {
             keys.press(if config.endless {
@@ -114,6 +133,7 @@ fn autoplay_input(
             });
         }
         AppState::GameOver => keys.press(KeyCode::Enter),
+        AppState::Shrine => keys.press(KeyCode::Escape),
         AppState::InGame => {
             if phase.is_some_and(|phase| *phase.get() == GamePhase::LevelUp) {
                 keys.press(KeyCode::Digit1);
@@ -257,4 +277,30 @@ fn autoplay_run(
         run_stats.kills,
     );
     exit.write(AppExit::Success);
+}
+
+/// `--scene`: waits for the screen to settle, saves a screenshot and exits.
+fn capture_scene(
+    mut commands: Commands,
+    time: Res<Time<Real>>,
+    config: Res<AutoplayConfig>,
+    mut stats: ResMut<AutoplayStats>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if config.scene.is_none() {
+        return;
+    }
+    stats.run_time += time.delta_secs();
+    if let Some(path) = &config.screenshot
+        && !stats.screenshot_taken
+        && stats.run_time > 3.0
+    {
+        stats.screenshot_taken = true;
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(path.clone()));
+    }
+    if stats.run_time > 5.0 {
+        exit.write(AppExit::Success);
+    }
 }

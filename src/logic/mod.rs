@@ -7,6 +7,7 @@
 
 pub mod dungeon;
 pub mod enemies;
+pub mod meta;
 pub mod progression;
 pub mod rng;
 pub mod skills;

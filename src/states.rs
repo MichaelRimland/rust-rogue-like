@@ -7,6 +7,8 @@ pub enum AppState {
     MainMenu,
     InGame,
     GameOver,
+    /// Spend soul shards on permanent upgrades.
+    Shrine,
 }
 
 /// What is happening inside a run. Only exists while in [`AppState::InGame`].

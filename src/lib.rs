@@ -19,6 +19,7 @@ mod enemy_fire;
 mod player;
 mod progression;
 mod run;
+mod save;
 mod skills;
 mod states;
 mod ui;
@@ -75,6 +76,7 @@ impl Plugin for GamePlugin {
                 player::PlayerPlugin,
             ))
             .add_plugins((
+                save::SavePlugin,
                 dungeon::DungeonPlugin,
                 enemy::EnemyPlugin,
                 enemy_fire::EnemyFirePlugin,

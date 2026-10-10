@@ -1,0 +1,47 @@
+# Builds a Windows release: the game executable plus its assets folder, zipped.
+#
+# Run it manually (Actions -> Release -> Run workflow) to get the zip as a build artifact,
+# or push a tag like `v0.1.0` to attach it to a GitHub Release automatically.
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $dir = "rust-rogue-like-windows"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item target/release/rust-rogue-like.exe $dir/
+          Copy-Item -Recurse assets $dir/assets
+          # Raw generator output and the style guide are not needed to play.
+          Remove-Item -Recurse -Force "$dir/assets/raw" -ErrorAction SilentlyContinue
+          Copy-Item README.md, LICENSE $dir/
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-rogue-like-windows
+          path: rust-rogue-like-windows.zip
+
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: rust-rogue-like-windows.zip

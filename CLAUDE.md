@@ -72,6 +72,9 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
 - Game feel: floating damage numbers (capped), screen shake (`CameraShake` in `world.rs`),
   archers light up before shooting, tiled forest floor snapped to the tile grid.
+- Meta-progression: runs earn soul shards, spent at the shrine (main menu key 3) on permanent
+  bonuses. Saved to `savegame.ron` (native only; the browser build keeps it in memory).
+  Autoplay never writes the save (`SaveDisabled`).
 - Sound: `audio.rs` (`PlaySound` message, rate-limited, ambient loop, `-`/`+`/`M` for volume).
   The WAV files in `assets/sounds/` are synthesized by `tools/make_sounds.py`.
 - Dev tools: `cargo run -- --autoplay 20 --enemies 2000 --screenshot out.png` plays an
@@ -125,8 +128,9 @@ web/index.html      page for the WASM build
       `include_str!`, parsed in `logic/enemies.rs`), 3 weapon evolutions (Sanctum, Prism Bolt,
       Arcane Tempest in `logic/stats.rs`), bats and warlocks, a different boss per floor
       (`boss_pattern` in `logic/dungeon.rs`). Weapons themselves are still code, not data
-- [ ] **M5 polish** – CC0 pixel art (Kenney / itch.io), sound, screen shake, damage numbers,
-      meta-progression with save game, settings
+- [x] **M5 polish** – done: pixel-art sprites (drawn in code, replaceable by AI art), synthesized
+      sound, screen shake, damage numbers, meta-progression with a save game (`logic/meta.rs`,
+      `save.rs`, shrine screen), volume setting, Windows release workflow (`release.yml`)
 - Possible later: headless integration tests (`App` with `MinimalPlugins` + `StatesPlugin`),
   controller support, more characters.
 

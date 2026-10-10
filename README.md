@@ -24,6 +24,7 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
 - **Two modes**: a **Dungeon** of three floors with rooms, door choices, shops, treasure and
   bosses, and the original **Endless** survival mode
+- **Meta-progression**: runs earn soul shards that buy permanent bonuses at the shrine
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
 - Runs natively (Windows, macOS, Linux) and in the browser via WebAssembly
 
@@ -92,6 +93,7 @@ src/
 ├── world.rs          camera follow, endlessly wrapping forest decoration
 ├── player.rs         movement, health, regeneration, death
 ├── skills.rs         movement skills: dash and blink
+├── save.rs           save game and meta-progression
 ├── dungeon.rs        dungeon mode: rooms, doors, shop, treasure, boss
 ├── enemy.rs          spawning, steering with separation, spatial grid
 ├── enemy_fire.rs     projectiles shot by ranged enemies
@@ -104,6 +106,7 @@ src/
     ├── stats.rs      player stats, upgrades, upgrade rolling
     ├── progression.rs XP curve and difficulty curves
     ├── enemies.rs    enemy archetypes and spawn tables
+    ├── meta.rs       shrine upgrades, records, shards
     ├── dungeon.rs    floor plans, wave sizes, difficulty per room
     └── rng.rs        deterministic SplitMix64 RNG
 ```
@@ -159,7 +162,7 @@ is not measured yet.
 - [x] **Milestone 2: performance** — benchmark mode, measured 5 000 enemies at 230 FPS (see above)
 - [x] **Milestone 3: dungeon** — three floors of procedurally generated rooms (arenas, elites, shops, treasure, rest), doors that open after the fight, a boss at the end of each floor
 - [x] **Milestone 4: content** — data-driven enemies (RON), weapon evolutions, six enemy types, a different boss on every floor
-- [ ] **Milestone 5: polish** — pixel-art sprites, sound, screen shake, meta-progression, save game
+- [x] **Milestone 5: polish** — pixel-art sprites, synthesized sound, screen shake, damage numbers, shrine meta-progression with a save game, Windows release workflow
 
 ## Development with AI
 
