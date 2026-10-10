@@ -127,58 +127,72 @@ def ellipse(canvas: Canvas, cx: float, cy: float, rx: float, ry: float, ramp: li
 
 
 def wizard(frame: int) -> Image.Image:
+    """A slim bearded wizard: tall pointed hat with a bent tip, glowing eyes, belt, robe."""
     c = Canvas(SIZE)
     colors = {
         "a": rgb("#2c1a4d"), "b": rgb("#5b3a9e"), "c": rgb("#8f6af0"), "d": rgb("#c9a8ff"),
-        "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#2b2438"),
-        "j": rgb("#4a2c1e"), "k": rgb("#7a4a2a"), "l": rgb("#b0763a"), "m": rgb("#e0a830"),
-        "n": rgb("#ffe27a"), "q": rgb("#1a1626"), "e": rgb("#8a5a12"),
+        "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "x": rgb("#d4cdd0"), "w": rgb("#f2ecdf"),
+        "e": rgb("#62c9c0"), "m": rgb("#e0a830"), "n": rgb("#ffe27a"), "q": rgb("#1a1626"),
+        "k": rgb("#7a4a2a"), "l": rgb("#b0763a"),
     }
-    darker = {"c": "b", "b": "a", "d": "c", "g": "h", "f": "g", "n": "m", "m": "e"}
+    # The mirrored (right) half is only slightly darker so the figure keeps one color mass.
+    darker = {"c": "b", "d": "c", "g": "h", "x": "g", "w": "x", "n": "m"}
     rows = [
-        "...............b",  # 2 hood tip
+        "...............b",  # 0 hat tip
+        "...............b",
+        "..............cb",
         "..............cb",
         ".............ccb",
-        "............cccb",
+        ".............cbb",
+        "............ccbb",
+        "............cbbb",
         "...........ccbbb",
-        "..........ccbbbb",
-        "........ccbbiiii",  # 8 hood opening, face lost in shadow
-        "........ccbbiiii",
-        "........ccbbiidi",  # glowing eye
-        "........ccbbihhh",  # gaunt jaw
-        ".......ccbbbiiii",  # 12 chin / collar
+        "...........cmmmm",  # 9 gold hat band
+        "........cccccbbb",  # 10 brim
+        "........aaaaaaaa",  # 11 brim shadow
+        ".........aaggggg",  # 12 face
+        ".........aageggg",  # 13 glowing eye
+        ".........aaggxxx",  # 14 nose and beard
+        "..........aaxxxx",  # 15 beard
+        "........ccbaaxxx",  # 16 shoulders
+        "........ccbbbxxw",
+        "........cbbbbbww",  # 18 beard tip
+        "........cmmmmmmn",  # 19 belt
+        "........cbbbbbbb",
+        "........cbbbbbab",
+        ".......ccbbbbbbb",
+        ".......ccbbabbbb",
         "......ccbbbbbbbb",
-        ".....ccbbbbbbbbb",
-        ".....cbbbbbbbbbb",
-        "....ccbbbbbbbbbb",
-        "....cbmmmmmmmmmn",  # 17 belt
-        "...ccbbbbbbbbbbb",
-        "...ccbbbbbbbbbbb",
-        "...ccbbbbabbbbbb",
-        "..ccbbbbbbbabbbb",
-        "..ccbbbbbbbbbbbb",
-        "..cbbbabbbaabbbb",
-        "..aabbaabbaaaabb",  # 24 ragged hem
-        "........qqq.....",  # 25 boots
-        "........qqq.....",
+        "......ccbbbabbbb",
+        ".....ccbbbbbbbbb",  # 26 robe flares out
+        ".....cbbaabbbabb",
+        ".....aabbaabbaab",  # 28 ragged hem
+        ".........qqq....",  # 29 boots
+        ".........qqq....",
     ]
-    draw_half_mirrored(c, rows, colors, darker, top=2)
-    # Hood shadow fix: the opening is symmetric, only the eyes glow.
-    for x, y in ((14, 10), (17, 10)):
-        c.put(x, y, colors["d"])
-    # Staff with a glowing orb, held in the right hand.
-    for y in range(7, 28):
-        c.put(27, y, colors["l"])
-        c.put(28, y, colors["k"])
-    orb = [".dd.", "cddc", "cddc", ".cc."]
-    draw_patch(c, 26, 3, orb, colors)
-    draw_patch(c, 25, 17, ["ff", "gf"], colors)  # hand
-    # A faint spark in the left hand.
-    draw_patch(c, 5, 15, ["f", "g"], colors)
-    c.put(4, 14, colors["d"])
-    c.put(5, 12, colors["c"])
+    draw_half_mirrored(c, rows, colors, darker, top=1)
+    # Shade the outer right edge of the robe to give the body some volume.
+    for y in range(18, 30):
+        xs = [x for (x, py) in c.pixels if py == y]
+        if xs:
+            c.put(max(xs), y, colors["a"])
+    # The tip of the hat flops over to the right.
+    for x, y, ch in ((17, 1, "b"), (18, 1, "a"), (18, 2, "b"), (19, 2, "a")):
+        c.put(x, y, colors[ch])
+    # Staff next to the right hand with a glowing orb.
+    for y in range(11, 32):
+        c.put(26, y, colors["l"])
+        c.put(27, y, colors["k"])
+    draw_patch(c, 25, 5, [".dd.", "dddd", "dccd", ".cc."], colors)
+    # The right arm reaches the staff; the left hand throws a small spark.
+    for x, y, ch in ((23, 18, "b"), (24, 19, "b"), (24, 20, "a")):
+        c.put(x, y, colors[ch])
+    draw_patch(c, 24, 21, ["gg"], colors)
+    draw_patch(c, 7, 21, ["g", "h"], colors)
+    c.put(6, 19, colors["e"])
+    c.put(5, 18, colors["d"])
     if frame == 1:
-        c = stride(c, 27, 28)
+        c = stride(c, 30, 31)
     return c.image()
 
 
