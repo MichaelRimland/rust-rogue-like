@@ -518,6 +518,149 @@ def ground() -> Image.Image:
     return c.image(outline=False)
 
 
+def ground_crypt() -> Image.Image:
+    """Cold flagstones: offset brick rows with mortar lines, chips and cracks."""
+    c = Canvas(SIZE)
+    base, mortar, light = rgb("#2b2438"), rgb("#1a1626"), rgb("#3d3550")
+    for y in range(SIZE):
+        for x in range(SIZE):
+            row = y // 8
+            local_x = (x + (8 if row % 2 else 0)) % 16
+            local_y = y % 8
+            if local_y == 7 or local_x == 15:
+                color = mortar
+            elif local_y == 0 or local_x == 0:
+                color = light
+            else:
+                color = base
+            c.put(x, y, color)
+    dark = rgb("#0d0b14")
+    for x, y in ((5, 3), (6, 4), (7, 4), (21, 12), (22, 13), (12, 26), (13, 26), (14, 27)):
+        c.put(x, y, dark)
+    teal = rgb("#123a44")  # damp patches
+    for x, y in ((18, 4), (19, 4), (3, 20), (4, 20), (4, 21), (26, 25)):
+        c.put(x, y, teal)
+    return c.image(outline=False)
+
+
+def ground_inferno() -> Image.Image:
+    """Scorched obsidian with veins of lava."""
+    c = Canvas(SIZE)
+    base, ash, deep = rgb("#1a1626"), rgb("#2b2438"), rgb("#3a0f1a")
+    c.pixels = {(x, y): base for x in range(SIZE) for y in range(SIZE)}
+    for x, y in ((4, 4), (20, 8), (11, 19), (26, 24), (7, 28), (28, 3)):
+        for dx in range(2):
+            for dy in range(2):
+                c.put(x + dx, y + dy, deep)
+    for x, y in ((14, 6), (24, 14), (3, 13), (17, 25), (9, 10), (29, 30)):
+        c.put(x, y, ash)
+    glow, core, hot = rgb("#7a1c26"), rgb("#c02f2f"), rgb("#ec6a4a")
+    # Two short veins per tile keep the floor readable behind a crowd of enemies.
+    veins = [
+        [(3, 9), (4, 9), (5, 10), (6, 10), (7, 11), (8, 11), (9, 12)],
+        [(19, 22), (20, 23), (21, 23), (22, 24), (23, 24)],
+    ]
+    for vein in veins:
+        for x, y in vein:
+            c.put(x, y + 1, glow)
+        for x, y in vein:
+            c.put(x, y, core)
+    c.put(6, 10, hot)
+    return c.image(outline=False)
+
+
+def decor_skull() -> Image.Image:
+    c = Canvas(SMALL)
+    ellipse(c, 8, 7, 5, 4, [rgb("#7d7589"), rgb("#a8a0ae"), rgb("#d4cdd0"), rgb("#f2ecdf")])
+    dark = rgb("#1a1626")
+    for x, y in ((6, 6), (7, 6), (6, 7), (7, 7), (9, 6), (10, 6), (9, 7), (10, 7), (8, 9)):
+        c.put(x, y, dark)
+    for x in range(6, 11):
+        c.put(x, 11, rgb("#a8a0ae") if x % 2 else dark)
+    return c.image(outline=False)
+
+
+def decor_pillar() -> Image.Image:
+    c = Canvas(SMALL)
+    ramp = [rgb("#2b2438"), rgb("#3d3550"), rgb("#5a5266"), rgb("#7d7589")]
+    for y in range(4, 14):
+        for x in range(5, 11):
+            shade = 3 if x == 5 else 2 if x < 8 else 1 if x < 10 else 0
+            c.put(x, y, ramp[shade])
+    # A broken, jagged top.
+    c.pixels.pop((6, 4), None)
+    c.pixels.pop((10, 4), None)
+    c.pixels.pop((5, 5), None)
+    for x in range(4, 12):
+        c.put(x, 13, rgb("#1a1626"))
+    return c.image(outline=False)
+
+
+def decor_candle() -> Image.Image:
+    c = Canvas(SMALL)
+    for y in range(9, 13):
+        c.put(7, y, rgb("#f2ecdf"))
+        c.put(8, y, rgb("#d4cdd0"))
+    c.put(7, 8, rgb("#1a1626"))
+    for x, y, color in ((7, 6, "#e0a830"), (7, 7, "#ffe27a"), (8, 7, "#e0a830"), (7, 5, "#ec6a4a")):
+        c.put(x, y, rgb(color))
+    for x in range(5, 11):
+        c.put(x, 13, rgb("#5a5266"))
+    return c.image(outline=False)
+
+
+def decor_rubble() -> Image.Image:
+    c = Canvas(SMALL)
+    ramp = [rgb("#1a1626"), rgb("#2b2438"), rgb("#3d3550"), rgb("#5a5266")]
+    ellipse(c, 5, 10, 3, 2, ramp)
+    ellipse(c, 10, 9, 3, 3, ramp)
+    ellipse(c, 8, 12, 2, 1.5, ramp)
+    return c.image(outline=False)
+
+
+def decor_ember() -> Image.Image:
+    c = Canvas(SMALL)
+    ellipse(c, 8, 9, 5, 4, [rgb("#0d0b14"), rgb("#1a1626"), rgb("#2b2438"), rgb("#3d3550")])
+    for x, y in ((5, 8), (6, 9), (7, 9), (8, 10), (9, 10), (10, 9), (11, 8)):
+        c.put(x, y, rgb("#c02f2f"))
+    c.put(8, 9, rgb("#ec6a4a"))
+    c.put(7, 8, rgb("#e0a830"))
+    return c.image(outline=False)
+
+
+def decor_obsidian() -> Image.Image:
+    c = Canvas(SMALL)
+    for cx, height in ((5, 6), (8, 10), (11, 5)):
+        for i in range(height):
+            y = 13 - i
+            half = max(0, (height - i) // 4)
+            for x in range(cx - half, cx + half + 1):
+                shade = "#3d3550" if x <= cx else "#1a1626"
+                c.put(x, y, rgb(shade))
+        c.put(cx, 13 - height + 1, rgb("#7a1c26"))
+    return c.image(outline=False)
+
+
+def decor_lava() -> Image.Image:
+    c = Canvas(SMALL)
+    ellipse(c, 8, 9, 6, 3, [rgb("#7a1c26"), rgb("#c02f2f"), rgb("#ec6a4a"), rgb("#ffe27a")])
+    return c.image(outline=False)
+
+
+def decor_charred() -> Image.Image:
+    c = Canvas(SMALL)
+    bone, shade = rgb("#5a5266"), rgb("#2b2438")
+    for x in range(3, 13):
+        c.put(x, 8, bone)
+        c.put(x, 9, shade)
+    for x, y in ((2, 7), (2, 9), (3, 7), (3, 9), (12, 7), (12, 9), (13, 8)):
+        c.put(x, y, bone)
+    for x, y in ((5, 11), (6, 12), (9, 11), (10, 5)):
+        c.put(x, y, rgb("#0d0b14"))
+    c.put(8, 7, rgb("#7a1c26"))
+    return c.image(outline=False)
+
+
 def decor_bush() -> Image.Image:
     c = Canvas(SMALL)
     ramp = [rgb("#11201a"), rgb("#1d3a2b"), rgb("#2f5a3a")]
@@ -589,6 +732,16 @@ SPRITES = {
     "king_0": lambda: king(0),
     "king_1": lambda: king(1),
     "ground": ground,
+    "ground_crypt": ground_crypt,
+    "ground_inferno": ground_inferno,
+    "decor_skull": decor_skull,
+    "decor_pillar": decor_pillar,
+    "decor_candle": decor_candle,
+    "decor_rubble": decor_rubble,
+    "decor_ember": decor_ember,
+    "decor_obsidian": decor_obsidian,
+    "decor_lava": decor_lava,
+    "decor_charred": decor_charred,
     "missile": missile,
     "enemy_bolt": enemy_bolt,
     "gem_small": lambda: gem(4, 5, [rgb("#2a7a80"), rgb("#62c9c0"), rgb("#f2ecdf"), rgb("#f2ecdf")]),

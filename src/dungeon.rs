@@ -18,9 +18,10 @@ use crate::{
     enemy_fire::spawn_bolt,
     logic::{
         dungeon::{
-            BossKind, BossPattern, FLOORS, FloorPlan, RoomKind, boss_health, boss_pattern,
-            boss_phase, clear_gold, difficulty_time, enemy_health_multiplier, pick_boss,
-            round_alive_cap, round_batch_size, round_quota, round_spawn_interval,
+            Biome, BossKind, BossPattern, FLOORS, FloorPlan, RoomKind, biome_for_floor,
+            boss_health, boss_pattern, boss_phase, clear_gold, difficulty_time,
+            enemy_health_multiplier, pick_boss, round_alive_cap, round_batch_size, round_quota,
+            round_spawn_interval,
         },
         enemies::pick_enemy_kind,
         stats::{Upgrade, roll_upgrades},
@@ -313,7 +314,7 @@ fn enter_room(
     player_transform.translation.x = PLAYER_START.x;
     player_transform.translation.y = PLAYER_START.y;
 
-    spawn_walls(commands);
+    spawn_walls(commands, biome_for_floor(dungeon.floor));
     let title = match kind {
         RoomKind::Arena | RoomKind::Elite => format!(
             "Floor {} - Round {}: {}",
@@ -372,9 +373,12 @@ fn enter_room(
     }
 }
 
-fn spawn_walls(commands: &mut Commands) {
-    let wall_color = Color::srgb(0.24, 0.21, 0.31);
-    let void_color = Color::srgb(0.03, 0.03, 0.05);
+fn spawn_walls(commands: &mut Commands, biome: Biome) {
+    let (wall_color, void_color) = match biome {
+        Biome::Forest => (Color::srgb(0.13, 0.22, 0.14), Color::srgb(0.02, 0.04, 0.03)),
+        Biome::Crypt => (Color::srgb(0.30, 0.27, 0.38), Color::srgb(0.03, 0.03, 0.05)),
+        Biome::Inferno => (Color::srgb(0.42, 0.11, 0.13), Color::srgb(0.05, 0.02, 0.03)),
+    };
     let thickness = 28.0;
     let (hx, hy) = (ARENA_HALF.x, ARENA_HALF.y);
     // Walls frame the arena; the void panels hide the endless floor behind them.

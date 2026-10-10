@@ -5,7 +5,8 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
-    dungeon::{ARENA_HALF, GameMode},
+    dungeon::{ARENA_HALF, Dungeon, GameMode},
+    logic::dungeon::{Biome, biome_for_floor},
     player::Player,
     run::GameRng,
 };
@@ -15,6 +16,7 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraShake>()
+            .init_resource::<CurrentBiome>()
             .add_systems(Startup, (spawn_camera, spawn_ground.after(spawn_camera)))
             .add_systems(
                 OnEnter(AppState::InGame),
@@ -22,7 +24,7 @@ impl Plugin for WorldPlugin {
             )
             .add_systems(
                 Update,
-                (follow_player, recycle_decor)
+                (sync_biome, follow_player, recycle_decor)
                     .chain()
                     .after(GameSet::Movement)
                     .before(GameSet::Combat)
@@ -40,6 +42,11 @@ const CAMERA_FOLLOW_SPEED: f32 = 8.0;
 
 #[derive(Component)]
 struct Decor;
+
+/// The look the world currently has. Follows the dungeon floor; endless mode stays in
+/// the forest.
+#[derive(Resource, Default)]
+pub struct CurrentBiome(pub Biome);
 
 /// The tiled forest floor, kept centered on the camera in whole tiles.
 #[derive(Component)]
@@ -72,7 +79,7 @@ fn spawn_ground(mut commands: Commands, assets: Res<GameAssets>) {
     commands.spawn((
         Ground,
         Sprite {
-            image: assets.ground.clone(),
+            image: assets.ground(Biome::Forest),
             custom_size: Some(GROUND_SIZE),
             image_mode: SpriteImageMode::Tiled {
                 tile_x: true,
@@ -108,14 +115,15 @@ fn reset_camera(
     *shake = CameraShake::default();
 }
 
-/// Scatters bushes, stones and bones so the player can see that they are moving.
-fn spawn_decor(mut commands: Commands, assets: Res<GameAssets>, mut rng: ResMut<GameRng>) {
-    let weights: Vec<f32> = assets.decor.iter().map(|(_, weight)| *weight).collect();
+/// Scatters the decoration of a biome so the player can see that they are moving.
+fn scatter_decor(commands: &mut Commands, assets: &GameAssets, rng: &mut GameRng, biome: Biome) {
+    let decor = assets.decor(biome);
+    let weights: Vec<f32> = decor.iter().map(|(_, weight)| *weight).collect();
     for _ in 0..DECOR_COUNT {
         let x = rng.0.range_f32(-DECOR_HALF_EXTENT.x, DECOR_HALF_EXTENT.x);
         let y = rng.0.range_f32(-DECOR_HALF_EXTENT.y, DECOR_HALF_EXTENT.y);
         let index = rng.0.weighted_index(&weights).unwrap_or(0);
-        let mut sprite = Sprite::from_image(assets.decor[index].0.clone());
+        let mut sprite = Sprite::from_image(decor[index].0.clone());
         sprite.flip_x = rng.0.chance(0.5);
         commands.spawn((
             Decor,
@@ -124,6 +132,45 @@ fn spawn_decor(mut commands: Commands, assets: Res<GameAssets>, mut rng: ResMut<
             DespawnOnExit(AppState::InGame),
         ));
     }
+}
+
+/// A new run starts in the forest.
+fn spawn_decor(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    mut rng: ResMut<GameRng>,
+    mut biome: ResMut<CurrentBiome>,
+    mut ground: Single<&mut Sprite, With<Ground>>,
+) {
+    biome.0 = Biome::Forest;
+    ground.image = assets.ground(Biome::Forest);
+    scatter_decor(&mut commands, &assets, &mut rng, Biome::Forest);
+}
+
+/// Re-dresses the world when the dungeon moves on to a floor with another biome.
+fn sync_biome(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    mode: Res<GameMode>,
+    dungeon: Res<Dungeon>,
+    mut rng: ResMut<GameRng>,
+    mut biome: ResMut<CurrentBiome>,
+    mut ground: Single<&mut Sprite, With<Ground>>,
+    decor: Query<Entity, With<Decor>>,
+) {
+    let wanted = match *mode {
+        GameMode::Endless => Biome::Forest,
+        GameMode::Dungeon => biome_for_floor(dungeon.floor),
+    };
+    if wanted == biome.0 {
+        return;
+    }
+    biome.0 = wanted;
+    ground.image = assets.ground(wanted);
+    for entity in &decor {
+        commands.entity(entity).despawn();
+    }
+    scatter_decor(&mut commands, &assets, &mut rng, wanted);
 }
 
 fn follow_player(

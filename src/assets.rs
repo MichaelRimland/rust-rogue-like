@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::logic::enemies::EnemyKind;
+use crate::logic::{dungeon::Biome, enemies::EnemyKind};
 
 /// Sprites are shown at this multiple of their pixel size (an integer keeps pixels square).
 pub const SPRITE_SCALE: f32 = 2.0;
@@ -36,14 +36,15 @@ pub struct GameAssets {
     pub missile: Handle<Image>,
     /// The end boss.
     pub king: [Handle<Image>; 2],
-    pub ground: Handle<Image>,
+    /// Ground tiles per biome, in the order of [`Biome::ALL`].
+    ground: [Handle<Image>; 3],
     pub enemy_bolt: Handle<Image>,
     pub rune: Handle<Image>,
     gems: [Handle<Image>; 3],
     /// Soft halo behind gems so they stand out on the dark ground.
     gem_glows: [Handle<ColorMaterial>; 3],
-    /// Decoration sprites paired with their spawn weight.
-    pub decor: Vec<(Handle<Image>, f32)>,
+    /// Decoration sprites per biome, paired with their spawn weight.
+    decor: [Vec<(Handle<Image>, f32)>; 3],
 
     pub aura: Handle<ColorMaterial>,
     /// Colors of the particles an enemy kind bursts into.
@@ -71,6 +72,14 @@ impl GameAssets {
             EnemyKind::Bat => self.particles[4].clone(),
             EnemyKind::Warlock => self.particles[5].clone(),
         }
+    }
+
+    pub fn ground(&self, biome: Biome) -> Handle<Image> {
+        self.ground[biome as usize].clone()
+    }
+
+    pub fn decor(&self, biome: Biome) -> &[(Handle<Image>, f32)] {
+        &self.decor[biome as usize]
     }
 
     /// The gem sprite for an experience value: small, medium or large.
@@ -114,7 +123,11 @@ fn create_assets(
 
         missile: sprite("missile"),
         king: frames("king"),
-        ground: sprite("ground"),
+        ground: [
+            sprite("ground"),
+            sprite("ground_crypt"),
+            sprite("ground_inferno"),
+        ],
         enemy_bolt: sprite("enemy_bolt"),
         rune: sprite("rune"),
         gems: [
@@ -127,12 +140,28 @@ fn create_assets(
             mat(Color::srgba(1.0, 0.89, 0.48, 0.30)),
             mat(Color::srgba(0.56, 0.42, 0.94, 0.32)),
         ],
-        decor: vec![
-            (sprite("decor_bush"), 3.0),
-            (sprite("decor_tuft"), 3.0),
-            (sprite("decor_stone"), 2.0),
-            (sprite("decor_mushroom"), 1.0),
-            (sprite("decor_bones"), 1.0),
+        decor: [
+            vec![
+                (sprite("decor_bush"), 3.0),
+                (sprite("decor_tuft"), 3.0),
+                (sprite("decor_stone"), 2.0),
+                (sprite("decor_mushroom"), 1.0),
+                (sprite("decor_bones"), 1.0),
+            ],
+            vec![
+                (sprite("decor_rubble"), 3.0),
+                (sprite("decor_skull"), 2.0),
+                (sprite("decor_pillar"), 1.5),
+                (sprite("decor_candle"), 1.5),
+                (sprite("decor_bones"), 2.0),
+            ],
+            vec![
+                (sprite("decor_ember"), 3.0),
+                (sprite("decor_obsidian"), 2.0),
+                (sprite("decor_lava"), 1.5),
+                (sprite("decor_charred"), 2.0),
+                (sprite("decor_rubble"), 1.0),
+            ],
         ],
 
         aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),

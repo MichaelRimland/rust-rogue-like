@@ -22,6 +22,7 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   projectiles, piercing) are not given upfront: you need luck on the roll, and every pick
   can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
+- **Three worlds**: every floor has its own look: the cursed forest, the crypt and the inferno
 - **Two modes**: a **Dungeon** of three floors in a large arena: fight rounds, choose doors
   (elite rounds, shops, treasure, rest), beat a different boss on every floor and finally
   the end boss, or play the original **Endless** survival mode

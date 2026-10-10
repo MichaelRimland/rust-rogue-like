@@ -115,6 +115,43 @@ impl FloorPlan {
 }
 
 // ---------------------------------------------------------------------------
+// Biomes
+// ---------------------------------------------------------------------------
+
+/// The look of a floor: ground, decoration and walls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Biome {
+    /// Mossy forest floor with bushes and mushrooms.
+    #[default]
+    Forest,
+    /// Cold flagstones with skulls, pillars and candles.
+    Crypt,
+    /// Scorched obsidian with lava veins and embers.
+    Inferno,
+}
+
+impl Biome {
+    pub const ALL: [Biome; 3] = [Biome::Forest, Biome::Crypt, Biome::Inferno];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Biome::Forest => "Cursed Forest",
+            Biome::Crypt => "The Crypt",
+            Biome::Inferno => "The Inferno",
+        }
+    }
+}
+
+/// Every floor gets its own look, so a run travels through different places.
+pub fn biome_for_floor(floor: u32) -> Biome {
+    match floor {
+        0 | 1 => Biome::Forest,
+        2 => Biome::Crypt,
+        _ => Biome::Inferno,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Rounds
 // ---------------------------------------------------------------------------
 
@@ -451,6 +488,19 @@ mod tests {
             assert!(king > boss_health(FLOORS, kind));
         }
         assert!(boss_health(2, BossKind::OgreWarlord) > boss_health(1, BossKind::OgreWarlord));
+    }
+
+    #[test]
+    fn every_floor_has_its_own_biome() {
+        let biomes: Vec<Biome> = (1..=FLOORS).map(biome_for_floor).collect();
+        for (i, a) in biomes.iter().enumerate() {
+            for b in &biomes[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+        assert_eq!(biome_for_floor(1), Biome::Forest);
+        assert_eq!(Biome::default(), Biome::Forest);
+        assert_eq!(Biome::ALL.len(), 3);
     }
 
     #[test]
