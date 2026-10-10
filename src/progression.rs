@@ -17,6 +17,7 @@ impl Plugin for ProgressionPlugin {
         app.init_resource::<PendingLevelUps>()
             .init_resource::<LevelUpChoices>()
             .add_systems(OnEnter(AppState::InGame), reset_progression)
+            .add_systems(Update, pulse_gems.in_set(GameSet::Movement))
             .add_systems(
                 Update,
                 (collect_gems, start_level_up)
@@ -31,6 +32,11 @@ impl Plugin for ProgressionPlugin {
 /// Number of upgrade cards offered per level-up.
 const CHOICES_PER_LEVEL: usize = 3;
 const GEM_ATTRACT_SPEED: f32 = 480.0;
+/// World radius of the halo behind a gem.
+const GEM_GLOW_RADIUS: f32 = 13.0;
+/// How strongly (fraction of size) and how fast gems pulse.
+const GEM_PULSE_AMOUNT: f32 = 0.12;
+const GEM_PULSE_SPEED: f32 = 4.0;
 
 #[derive(Component)]
 pub struct XpGem {
@@ -56,7 +62,25 @@ pub fn spawn_gem(commands: &mut Commands, assets: &GameAssets, position: Vec2, v
         Sprite::from_image(assets.gem_image(value)),
         Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
+        // A soft halo behind the gem. The child inherits the parent's scale.
+        children![(
+            Mesh2d(assets.circle.clone()),
+            MeshMaterial2d(assets.gem_glow(value)),
+            Transform::from_xyz(0.0, 0.0, -0.1)
+                .with_scale(Vec3::splat(GEM_GLOW_RADIUS / SPRITE_SCALE)),
+        )],
     ));
+}
+
+/// Gems pulse gently so they catch the eye on the ground.
+fn pulse_gems(time: Res<Time>, mut gems: Query<&mut Transform, With<XpGem>>) {
+    let t = time.elapsed_secs() * GEM_PULSE_SPEED;
+    for mut transform in &mut gems {
+        // The position doubles as a phase offset so gems do not pulse in unison.
+        let phase = transform.translation.x * 0.05;
+        let scale = SPRITE_SCALE * (1.0 + GEM_PULSE_AMOUNT * (t + phase).sin());
+        transform.scale = Vec3::new(scale, scale, 1.0);
+    }
 }
 
 fn reset_progression(mut pending: ResMut<PendingLevelUps>, mut choices: ResMut<LevelUpChoices>) {

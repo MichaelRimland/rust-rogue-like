@@ -35,6 +35,8 @@ pub struct GameAssets {
     pub enemy_bolt: Handle<Image>,
     pub rune: Handle<Image>,
     gems: [Handle<Image>; 3],
+    /// Soft halo behind gems so they stand out on the dark ground.
+    gem_glows: [Handle<ColorMaterial>; 3],
     /// Decoration sprites paired with their spawn weight.
     pub decor: Vec<(Handle<Image>, f32)>,
 
@@ -64,11 +66,19 @@ impl GameAssets {
 
     /// The gem sprite for an experience value: small, medium or large.
     pub fn gem_image(&self, xp: u32) -> Handle<Image> {
-        match xp {
-            0..=3 => self.gems[0].clone(),
-            4..=9 => self.gems[1].clone(),
-            _ => self.gems[2].clone(),
-        }
+        self.gems[gem_tier(xp)].clone()
+    }
+
+    pub fn gem_glow(&self, xp: u32) -> Handle<ColorMaterial> {
+        self.gem_glows[gem_tier(xp)].clone()
+    }
+}
+
+fn gem_tier(xp: u32) -> usize {
+    match xp {
+        0..=3 => 0,
+        4..=9 => 1,
+        _ => 2,
     }
 }
 
@@ -98,6 +108,11 @@ fn create_assets(
             sprite("gem_small"),
             sprite("gem_medium"),
             sprite("gem_large"),
+        ],
+        gem_glows: [
+            mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
+            mat(Color::srgba(1.0, 0.89, 0.48, 0.30)),
+            mat(Color::srgba(0.56, 0.42, 0.94, 0.32)),
         ],
         decor: vec![
             (sprite("decor_bush"), 3.0),
