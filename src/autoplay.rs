@@ -76,6 +76,16 @@ struct AutoplayConfig {
     /// Saves a screenshot of the window to this path after a few seconds of play.
     screenshot: Option<String>,
     screenshot_at: f32,
+    /// `--capture-dir DIR [--capture-from S] [--capture-for S] [--capture-fps N]` saves a
+    /// numbered frame sequence, e.g. to assemble a GIF.
+    capture: Option<CaptureConfig>,
+}
+
+struct CaptureConfig {
+    directory: String,
+    from: f32,
+    seconds: f32,
+    interval: f32,
 }
 
 impl AutoplayConfig {
@@ -101,7 +111,18 @@ impl AutoplayConfig {
         let start_floor = number("--floor")
             .map(|floor| floor as u32)
             .or(boss_room.then_some(1));
+        let capture = args
+            .iter()
+            .position(|arg| arg == "--capture-dir")
+            .and_then(|i| args.get(i + 1))
+            .map(|directory| CaptureConfig {
+                directory: directory.clone(),
+                from: number("--capture-from").unwrap_or(10.0),
+                seconds: number("--capture-for").unwrap_or(8.0),
+                interval: 1.0 / number("--capture-fps").unwrap_or(10.0).max(1.0),
+            });
         Some(Self {
+            capture,
             maxed: args.iter().any(|arg| arg == "--maxed"),
             hold_level_up: args.iter().any(|arg| arg == "--hold-levelup"),
             start_floor,
@@ -121,6 +142,8 @@ struct AutoplayStats {
     started: bool,
     screenshot_taken: bool,
     next_report: f32,
+    next_frame: f32,
+    frames_saved: u32,
     run_time: f32,
     frame_times: Vec<f32>,
 }
@@ -285,6 +308,18 @@ fn autoplay_run(
         commands
             .spawn(Screenshot::primary_window())
             .observe(save_to_disk(path.clone()));
+    }
+    if let Some(capture) = &config.capture
+        && stats.run_time >= capture.from
+        && stats.run_time < capture.from + capture.seconds
+        && stats.run_time >= stats.next_frame
+    {
+        stats.next_frame = stats.run_time + capture.interval;
+        let path = format!("{}/frame_{:04}.png", capture.directory, stats.frames_saved);
+        stats.frames_saved += 1;
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(path));
     }
     // Skip the first second: asset loading and shader compilation distort it.
     if stats.run_time > 1.0 {

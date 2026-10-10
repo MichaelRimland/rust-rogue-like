@@ -6,3 +6,5 @@
 .vscode/
 /assets/raw/
 savegame.ron
+__pycache__/
+*.pyc
