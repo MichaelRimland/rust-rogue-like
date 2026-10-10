@@ -1,0 +1,50 @@
+# Fixed 32-color palette of the game. One #RRGGBB per line, comments start with '#' + space.
+# See assets/STYLE.md for how the groups are used.
+
+# near-black / violet-gray (outlines, shadows)
+#0d0b14
+#1a1626
+#2b2438
+#3d3550
+
+# stone / bone
+#5a5266
+#7d7589
+#a8a0ae
+#d4cdd0
+#f2ecdf
+
+# moss greens
+#11201a
+#1d3a2b
+#2f5a3a
+#4c8044
+#86b04f
+
+# leather / earth
+#4a2c1e
+#7a4a2a
+#b0763a
+#d9a65a
+
+# blood reds
+#3a0f1a
+#7a1c26
+#c02f2f
+#ec6a4a
+
+# arcane purple
+#2c1a4d
+#5b3a9e
+#8f6af0
+#c9a8ff
+
+# ghost teal
+#123a44
+#2a7a80
+#62c9c0
+
+# gold
+#8a5a12
+#e0a830
+#ffe27a
