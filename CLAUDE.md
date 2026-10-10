@@ -119,8 +119,10 @@ web/index.html      page for the WASM build
 - [x] **M3 dungeon** – done: `dungeon.rs` (rooms, doors, shop, chest, rest, boss) on top of
       `logic/dungeon.rs` (floor plans, waves, difficulty). Main menu picks Dungeon or Endless
       (`GameMode`). 3 floors, 6 rooms each, boss at the end, victory after floor 3
-- [ ] **M4 content** – weapons/enemies data-driven from RON files, weapon evolutions
-      (item A + item B → super weapon), bosses, more enemy types
+- [x] **M4 content** – done: enemies are data-driven (`assets/data/enemies.ron`, embedded with
+      `include_str!`, parsed in `logic/enemies.rs`), 3 weapon evolutions (Sanctum, Prism Bolt,
+      Arcane Tempest in `logic/stats.rs`), bats and warlocks, a different boss per floor
+      (`boss_pattern` in `logic/dungeon.rs`). Weapons themselves are still code, not data
 - [ ] **M5 polish** – CC0 pixel art (Kenney / itch.io), sound, screen shake, damage numbers,
       meta-progression with save game, settings
 - Possible later: headless integration tests (`App` with `MinimalPlugins` + `StatesPlugin`),

@@ -76,8 +76,15 @@ fn enemy_shooting(
         }
         enemy.shoot_timer = ranged.cooldown;
 
-        let velocity = offset.normalize_or_zero() * ranged.projectile_speed;
-        spawn_bolt(&mut commands, &assets, origin, velocity, ranged.damage);
+        // A shot is a single bolt or a symmetric fan around the aim direction.
+        let aim = offset.normalize_or_zero();
+        let count = ranged.projectiles.max(1);
+        let middle = (count as f32 - 1.0) / 2.0;
+        for i in 0..count {
+            let direction = Vec2::from_angle((i as f32 - middle) * ranged.spread).rotate(aim);
+            let velocity = direction * ranged.projectile_speed;
+            spawn_bolt(&mut commands, &assets, origin, velocity, ranged.damage);
+        }
     }
 }
 

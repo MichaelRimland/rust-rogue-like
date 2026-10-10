@@ -12,6 +12,8 @@ categories = ["games"]
 [dependencies]
 # Only the 2D and UI parts of Bevy: keeps compile times and the WASM bundle smaller.
 bevy = { version = "0.20", default-features = false, features = ["2d", "ui"] }
+ron = "0.12.2"
+serde = { version = "1.0.229", features = ["derive"] }
 
 [features]
 # Faster iteration during development: `cargo run --features dev`

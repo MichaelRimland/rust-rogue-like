@@ -3,7 +3,7 @@
 //! A floor is a short chain of rooms. After the first room the player chooses between two
 //! doors per step; the last room of every floor is the boss.
 
-use super::rng::Rng;
+use super::{enemies::EnemyKind, rng::Rng};
 
 /// Number of floors before the run is won.
 pub const FLOORS: u32 = 3;
@@ -144,6 +144,59 @@ pub fn enemy_health_multiplier(floor: u32, layer: usize) -> f32 {
     1.0 + difficulty_time(floor, layer) / 90.0
 }
 
+/// How a boss looks and attacks. Every floor has its own.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BossPattern {
+    pub name: &'static str,
+    /// Sprite and base stats come from this enemy kind.
+    pub kind: EnemyKind,
+    /// Sprite scale relative to a normal enemy.
+    pub visual: f32,
+    pub tint: [f32; 3],
+    /// Bolts in the ring fired every few seconds, and when the boss is enraged.
+    pub ring: u32,
+    pub ring_enraged: u32,
+    /// Bolts in an aimed fan fired together with the ring (0 means none).
+    pub aimed: u32,
+    /// What the boss calls to its side.
+    pub summon: EnemyKind,
+}
+
+pub fn boss_pattern(floor: u32) -> BossPattern {
+    match floor {
+        0 | 1 => BossPattern {
+            name: "Ogre Warlord",
+            kind: EnemyKind::Ogre,
+            visual: 3.0,
+            tint: [1.0, 0.62, 0.72],
+            ring: 10,
+            ring_enraged: 16,
+            aimed: 0,
+            summon: EnemyKind::Goblin,
+        },
+        2 => BossPattern {
+            name: "Bone Colossus",
+            kind: EnemyKind::Skeleton,
+            visual: 5.0,
+            tint: [0.75, 1.0, 0.95],
+            ring: 8,
+            ring_enraged: 12,
+            aimed: 3,
+            summon: EnemyKind::Skeleton,
+        },
+        _ => BossPattern {
+            name: "Archwarlock",
+            kind: EnemyKind::Warlock,
+            visual: 5.0,
+            tint: [1.0, 0.8, 1.0],
+            ring: 12,
+            ring_enraged: 18,
+            aimed: 5,
+            summon: EnemyKind::Bat,
+        },
+    }
+}
+
 /// Health of the floor's boss.
 pub fn boss_health(floor: u32) -> f32 {
     700.0 * (1.0 + 0.9 * floor.saturating_sub(1) as f32)
@@ -217,6 +270,23 @@ mod tests {
         for kind in [RoomKind::Treasure, RoomKind::Shop, RoomKind::Rest] {
             assert!(!kind.is_combat());
             assert_eq!(wave_count(kind, 1, 1), 0);
+        }
+    }
+
+    #[test]
+    fn every_floor_has_a_different_and_growing_boss() {
+        let patterns: Vec<_> = (1..=FLOORS).map(boss_pattern).collect();
+        for (i, a) in patterns.iter().enumerate() {
+            for b in &patterns[i + 1..] {
+                assert_ne!(a.name, b.name);
+            }
+        }
+        for pair in patterns.windows(2) {
+            assert!(pair[1].ring >= pair[0].ring - 4);
+            assert!(pair[1].aimed >= pair[0].aimed);
+        }
+        for pattern in &patterns {
+            assert!(pattern.ring_enraged > pattern.ring);
         }
     }
 

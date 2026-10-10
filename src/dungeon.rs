@@ -15,10 +15,10 @@ use crate::{
     enemy_fire::spawn_bolt,
     logic::{
         dungeon::{
-            FLOORS, FloorPlan, RoomKind, boss_health, clear_gold, difficulty_time,
-            enemy_health_multiplier, wave_count, wave_size,
+            BossPattern, FLOORS, FloorPlan, RoomKind, boss_health, boss_pattern, clear_gold,
+            difficulty_time, enemy_health_multiplier, wave_count, wave_size,
         },
-        enemies::{EnemyKind, pick_enemy_kind},
+        enemies::pick_enemy_kind,
         stats::{Upgrade, roll_upgrades},
     },
     player::{Health, Player},
@@ -173,6 +173,7 @@ struct ShopItem {
 
 #[derive(Component)]
 struct Boss {
+    pattern: BossPattern,
     max_health: f32,
     bolt_timer: f32,
     summon_timer: f32,
@@ -606,20 +607,22 @@ fn wave_spawner(
 }
 
 fn spawn_boss(commands: &mut Commands, assets: &GameAssets, floor: u32) {
-    let base_health = EnemyKind::Ogre.archetype().health;
+    let pattern = boss_pattern(floor);
     let max_health = boss_health(floor);
+    let base_health = pattern.kind.archetype().health;
     let mut spawn = EnemySpawn::new(
-        EnemyKind::Ogre,
+        pattern.kind,
         Vec2::new(0.0, 120.0),
         max_health / base_health,
     );
     spawn.radius_factor = 1.5;
-    spawn.visual_factor = 3.0;
+    spawn.visual_factor = pattern.visual;
     spawn.xp_factor = 25;
-    spawn.tint = Color::srgb(1.0, 0.62, 0.72);
+    spawn.tint = Color::srgb(pattern.tint[0], pattern.tint[1], pattern.tint[2]);
     let entity = spawn_enemy_with(commands, assets, spawn);
     commands.entity(entity).insert((
         Boss {
+            pattern,
             max_health,
             bolt_timer: 2.5,
             summon_timer: 7.0,
@@ -627,6 +630,13 @@ fn spawn_boss(commands: &mut Commands, assets: &GameAssets, floor: u32) {
         },
         RoomEntity,
     ));
+    spawn_banner(
+        commands,
+        pattern.name.to_string(),
+        Vec2::new(0.0, 150.0),
+        Color::srgb(0.93, 0.42, 0.29),
+        34.0,
+    );
 
     // Health bar below the HUD line, centered at the top of the screen.
     commands.spawn((
@@ -665,18 +675,25 @@ fn boss_logic(
     time: Res<Time>,
     assets: Res<GameAssets>,
     dungeon: Res<Dungeon>,
+    player: Single<&Transform, (With<Player>, Without<Boss>)>,
     mut bosses: Query<(&Transform, &mut Boss, &Enemy)>,
 ) {
     let dt = time.delta_secs();
+    let target = player.translation.truncate();
     for (transform, mut boss, enemy) in &mut bosses {
         let origin = transform.translation.truncate();
+        let pattern = boss.pattern;
         let enraged = enemy.health < boss.max_health * 0.5;
 
         boss.bolt_timer -= dt;
         if boss.bolt_timer <= 0.0 {
             boss.bolt_timer = if enraged { 1.9 } else { 2.8 };
             boss.spin += 0.37;
-            let count = if enraged { 16 } else { 10 };
+            let count = if enraged {
+                pattern.ring_enraged
+            } else {
+                pattern.ring
+            };
             for i in 0..count {
                 let angle = boss.spin + i as f32 * TAU / count as f32;
                 spawn_bolt(
@@ -686,6 +703,15 @@ fn boss_logic(
                     Vec2::from_angle(angle) * 190.0,
                     14.0,
                 );
+            }
+            // An aimed fan on top of the ring: the part that has to be dodged sideways.
+            if pattern.aimed > 0 {
+                let aim = (target - origin).normalize_or_zero();
+                let middle = (pattern.aimed as f32 - 1.0) / 2.0;
+                for i in 0..pattern.aimed {
+                    let direction = Vec2::from_angle((i as f32 - middle) * 0.28).rotate(aim);
+                    spawn_bolt(&mut commands, &assets, origin, direction * 250.0, 12.0);
+                }
             }
         }
 
@@ -698,7 +724,7 @@ fn boss_logic(
                 spawn_enemy(
                     &mut commands,
                     &assets,
-                    EnemyKind::Goblin,
+                    pattern.summon,
                     origin + offset,
                     multiplier,
                 );

@@ -315,15 +315,8 @@ def ogre(frame: int) -> Image.Image:
     return c.image()
 
 
-def archer(frame: int) -> Image.Image:
-    c = Canvas(SIZE)
-    colors = {
-        "a": rgb("#3a0f1a"), "b": rgb("#7a1c26"), "c": rgb("#c02f2f"), "d": rgb("#ec6a4a"),
-        "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#2b2438"),
-        "e": rgb("#ffe27a"), "q": rgb("#1a1626"), "k": rgb("#7a4a2a"), "j": rgb("#4a2c1e"),
-        "x": rgb("#d4cdd0"),
-    }
-    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
+def draw_hooded_body(c: Canvas, colors: dict, darker: dict):
+    """A short hooded figure; shared by the archer and the warlock."""
     rows = [
         "..............bb",  # 6 hood tip
         ".............cbb",
@@ -349,6 +342,18 @@ def archer(frame: int) -> Image.Image:
         "........qqq.....",
     ]
     draw_half_mirrored(c, rows, colors, darker, top=6)
+
+
+def archer(frame: int) -> Image.Image:
+    c = Canvas(SIZE)
+    colors = {
+        "a": rgb("#3a0f1a"), "b": rgb("#7a1c26"), "c": rgb("#c02f2f"), "d": rgb("#ec6a4a"),
+        "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#2b2438"),
+        "e": rgb("#ffe27a"), "q": rgb("#1a1626"), "k": rgb("#7a4a2a"), "j": rgb("#4a2c1e"),
+        "x": rgb("#d4cdd0"),
+    }
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
+    draw_hooded_body(c, colors, darker)
     # Short bow in the right hand: wooden limb on the right, bone string on the left.
     for x, y in ((27, 11), (28, 12), (29, 13), (29, 14), (30, 15), (30, 16), (30, 17),
                  (30, 18), (30, 19), (29, 20), (29, 21), (28, 22), (27, 23)):
@@ -358,6 +363,49 @@ def archer(frame: int) -> Image.Image:
     draw_patch(c, 25, 17, ["ff"], colors)
     if frame == 1:
         c = stride(c, 26, 27)
+    return c.image()
+
+
+def warlock(frame: int) -> Image.Image:
+    c = Canvas(SIZE)
+    colors = {
+        "a": rgb("#123a44"), "b": rgb("#2a7a80"), "c": rgb("#62c9c0"), "d": rgb("#c9a8ff"),
+        "f": rgb("#5b3a9e"), "g": rgb("#2c1a4d"), "h": rgb("#1a1626"), "i": rgb("#0d0b14"),
+        "e": rgb("#c9a8ff"), "q": rgb("#1a1626"), "p": rgb("#8f6af0"), "j": rgb("#4a2c1e"),
+    }
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
+    draw_hooded_body(c, colors, darker)
+    # A crooked staff topped by a floating orb.
+    for y in range(14, 29):
+        c.put(28, y, colors["j"])
+    draw_patch(c, 26, 8, [".pp.", "pddp", "pddp", ".pp."], colors)
+    draw_patch(c, 25, 17, ["ff"], colors)
+    if frame == 1:
+        c = stride(c, 26, 27)
+    return c.image()
+
+
+def bat(frame: int) -> Image.Image:
+    c = Canvas(SIZE)
+    colors = {
+        "a": rgb("#2c1a4d"), "b": rgb("#5b3a9e"), "i": rgb("#2b2438"), "h": rgb("#3d3550"),
+        "r": rgb("#ec6a4a"), "w": rgb("#f2ecdf"),
+    }
+    darker = {"b": "a", "h": "i"}
+    rows = [
+        "............i.ii",  # ears
+        "...........ihhhh",
+        ".....bbbb..ihrhh",  # eyes, wing tips
+        "...bbbbbbbbihhhh",
+        "..bbbbbbbbbbhwhh",  # fangs
+        "..abbbbbbbbahhhh",
+        "..a.aabbaa..hhhh",  # ragged wing edge
+        "......a..a...hhh",
+        "..............ii",
+    ]
+    draw_half_mirrored(c, rows, colors, darker, top=11)
+    if frame == 1:
+        c = stride(c, 12, 20)
     return c.image()
 
 
@@ -496,6 +544,10 @@ SPRITES = {
     "ogre_1": lambda: ogre(1),
     "archer_0": lambda: archer(0),
     "archer_1": lambda: archer(1),
+    "bat_0": lambda: bat(0),
+    "bat_1": lambda: bat(1),
+    "warlock_0": lambda: warlock(0),
+    "warlock_1": lambda: warlock(1),
     "ground": ground,
     "missile": missile,
     "enemy_bolt": enemy_bolt,

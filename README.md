@@ -15,11 +15,13 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 - **Survivor-style combat** with hundreds of enemies on screen at once
 - **Three spells** that stack into builds: Arcane Missile (fires automatically towards the mouse cursor, piercing volleys),
   Holy Aura (damage field) and Orbiting Runes
+- **Weapon evolutions**: max out the right ingredients and a spell fuses into something new
+  (Sanctum, Prism Bolt, Arcane Tempest)
 - **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps.
   Movement skills (Dash, Blink) and spell modifiers (Fork, Chain, Spell Echo, Impact Burst,
   Searing Touch, extra projectiles, piercing) are
   not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
-- **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, archers whose bolts you have to dodge), tougher monsters
+- **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
 - **Two modes**: a **Dungeon** of three floors with rooms, door choices, shops, treasure and
   bosses, and the original **Endless** survival mode
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
@@ -155,7 +157,7 @@ is not measured yet.
 - [x] **Milestone 1: core loop** — movement, auto-attacks, enemies, XP, level-ups, game over
 - [x] **Milestone 2: performance** — benchmark mode, measured 5 000 enemies at 230 FPS (see above)
 - [x] **Milestone 3: dungeon** — three floors of procedurally generated rooms (arenas, elites, shops, treasure, rest), doors that open after the fight, a boss at the end of each floor
-- [ ] **Milestone 4: content** — data-driven weapons and enemies (RON), weapon evolutions, bosses
+- [x] **Milestone 4: content** — data-driven enemies (RON), weapon evolutions, six enemy types, a different boss on every floor
 - [ ] **Milestone 5: polish** — pixel-art sprites, sound, screen shake, meta-progression, save game
 
 ## Development with AI

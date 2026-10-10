@@ -30,6 +30,8 @@ pub struct GameAssets {
     skeleton: [Handle<Image>; 2],
     ogre: [Handle<Image>; 2],
     archer: [Handle<Image>; 2],
+    bat: [Handle<Image>; 2],
+    warlock: [Handle<Image>; 2],
 
     pub missile: Handle<Image>,
     pub ground: Handle<Image>,
@@ -43,7 +45,7 @@ pub struct GameAssets {
 
     pub aura: Handle<ColorMaterial>,
     /// Colors of the particles an enemy kind bursts into.
-    particles: [Handle<ColorMaterial>; 4],
+    particles: [Handle<ColorMaterial>; 6],
 }
 
 impl GameAssets {
@@ -53,6 +55,8 @@ impl GameAssets {
             EnemyKind::Skeleton => self.skeleton.clone(),
             EnemyKind::Ogre => self.ogre.clone(),
             EnemyKind::Archer => self.archer.clone(),
+            EnemyKind::Bat => self.bat.clone(),
+            EnemyKind::Warlock => self.warlock.clone(),
         }
     }
 
@@ -62,6 +66,8 @@ impl GameAssets {
             EnemyKind::Skeleton => self.particles[1].clone(),
             EnemyKind::Ogre => self.particles[2].clone(),
             EnemyKind::Archer => self.particles[3].clone(),
+            EnemyKind::Bat => self.particles[4].clone(),
+            EnemyKind::Warlock => self.particles[5].clone(),
         }
     }
 
@@ -101,6 +107,8 @@ fn create_assets(
         skeleton: frames("skeleton"),
         ogre: frames("ogre"),
         archer: frames("archer"),
+        bat: frames("bat"),
+        warlock: frames("warlock"),
 
         missile: sprite("missile"),
         ground: sprite("ground"),
@@ -130,6 +138,8 @@ fn create_assets(
             mat(Color::srgb(0.83, 0.80, 0.82)),
             mat(Color::srgb(0.48, 0.29, 0.16)),
             mat(Color::srgb(0.48, 0.11, 0.15)),
+            mat(Color::srgb(0.36, 0.23, 0.62)),
+            mat(Color::srgb(0.16, 0.48, 0.50)),
         ],
     };
     commands.insert_resource(assets);

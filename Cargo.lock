@@ -4689,6 +4689,8 @@ name = "rust-rogue-like"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "ron",
+ "serde",
 ]
 
 [[package]]

@@ -1,0 +1,90 @@
+// Enemy definitions, embedded into the game at compile time (see logic/enemies.rs).
+//
+// health / speed / radius / contact_dps: base values before difficulty scaling
+// xp, gold:       dropped when the enemy dies
+// spawn:          the enemy appears once `from` seconds of difficulty time have passed;
+//                 its spawn weight is `base + per_second * time`
+// ranged:         None for melee-only enemies, otherwise how the enemy shoots
+//                 (min_range / max_range: preferred distance, projectiles x spread: a fan)
+[
+    (
+        kind: Goblin,
+        health: 16.0,
+        speed: 95.0,
+        radius: 10.0,
+        contact_dps: 12.0,
+        xp: 3,
+        gold: 1,
+        spawn: (from: 0.0, base: 1.0, per_second: 0.0),
+        ranged: None,
+    ),
+    (
+        kind: Skeleton,
+        health: 40.0,
+        speed: 70.0,
+        radius: 12.0,
+        contact_dps: 18.0,
+        xp: 5,
+        gold: 2,
+        spawn: (from: 45.0, base: 0.6, per_second: 0.00333),
+        ranged: None,
+    ),
+    (
+        kind: Ogre,
+        health: 160.0,
+        speed: 45.0,
+        radius: 22.0,
+        contact_dps: 34.0,
+        xp: 18,
+        gold: 5,
+        spawn: (from: 120.0, base: 0.15, per_second: 0.000833),
+        ranged: None,
+    ),
+    (
+        kind: Archer,
+        health: 24.0,
+        speed: 65.0,
+        radius: 11.0,
+        contact_dps: 6.0,
+        xp: 6,
+        gold: 3,
+        spawn: (from: 75.0, base: 0.3, per_second: 0.002),
+        ranged: Some((
+            min_range: 230.0,
+            max_range: 380.0,
+            cooldown: 2.4,
+            projectile_speed: 230.0,
+            damage: 12.0,
+        )),
+    ),
+    (
+        kind: Bat,
+        health: 9.0,
+        speed: 150.0,
+        radius: 8.0,
+        contact_dps: 9.0,
+        xp: 2,
+        gold: 1,
+        spawn: (from: 100.0, base: 0.5, per_second: 0.002),
+        ranged: None,
+    ),
+    (
+        kind: Warlock,
+        health: 48.0,
+        speed: 55.0,
+        radius: 12.0,
+        contact_dps: 8.0,
+        xp: 9,
+        gold: 4,
+        spawn: (from: 150.0, base: 0.2, per_second: 0.001),
+        ranged: Some((
+            min_range: 260.0,
+            max_range: 420.0,
+            cooldown: 3.2,
+            projectile_speed: 190.0,
+            damage: 10.0,
+            projectiles: 3,
+            spread: 0.38,
+        )),
+    ),
+]
