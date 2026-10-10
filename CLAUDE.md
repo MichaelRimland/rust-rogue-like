@@ -72,6 +72,8 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
 - Game feel: floating damage numbers (capped), screen shake (`CameraShake` in `world.rs`),
   archers light up before shooting, tiled forest floor snapped to the tile grid.
+- Sound: `audio.rs` (`PlaySound` message, rate-limited, ambient loop, `-`/`+`/`M` for volume).
+  The WAV files in `assets/sounds/` are synthesized by `tools/make_sounds.py`.
 - Dev tools: `cargo run -- --autoplay 20 --enemies 2000 --screenshot out.png` plays an
   unattended run (see `autoplay.rs`). Use it to smoke-test changes and to look at the game.
 

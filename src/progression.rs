@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GamePhase, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    audio::{PlaySound, Sfx},
     logic::stats::{Upgrade, roll_upgrades},
     player::{Health, PLAYER_RADIUS, Player},
     run::{GameRng, Stats, Xp},
@@ -94,6 +95,7 @@ fn collect_gems(
     stats: Res<Stats>,
     mut xp: ResMut<Xp>,
     mut pending: ResMut<PendingLevelUps>,
+    mut sounds: MessageWriter<PlaySound>,
     player: Single<&Transform, (With<Player>, Without<XpGem>)>,
     mut gems: Query<(Entity, &mut Transform, &mut XpGem)>,
 ) {
@@ -109,6 +111,7 @@ fn collect_gems(
 
         if distance_sq <= collect_radius * collect_radius {
             pending.0 += xp.add(gem.value);
+            sounds.write(PlaySound(Sfx::Pickup));
             commands.entity(entity).try_despawn();
             continue;
         }

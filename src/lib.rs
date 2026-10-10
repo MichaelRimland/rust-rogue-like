@@ -9,6 +9,7 @@ pub mod logic;
 
 mod animation;
 mod assets;
+mod audio;
 mod autoplay;
 mod bench;
 mod combat;
@@ -68,9 +69,12 @@ impl Plugin for GamePlugin {
             .add_plugins((
                 assets::AssetsPlugin,
                 animation::AnimationPlugin,
+                audio::GameAudioPlugin,
                 world::WorldPlugin,
                 run::RunPlugin,
                 player::PlayerPlugin,
+            ))
+            .add_plugins((
                 dungeon::DungeonPlugin,
                 enemy::EnemyPlugin,
                 enemy_fire::EnemyFirePlugin,

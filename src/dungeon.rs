@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    audio::{PlaySound, Sfx},
     enemy::{Enemy, EnemySpawn, spawn_enemy, spawn_enemy_with},
     enemy_fire::spawn_bolt,
     logic::{
@@ -526,6 +527,7 @@ fn wave_spawner(
     mut run: ResMut<RunStats>,
     mut pending: ResMut<PendingLevelUps>,
     mut next: ResMut<NextState<AppState>>,
+    mut sounds: MessageWriter<PlaySound>,
     enemies: Query<(), With<Enemy>>,
     mut gems: Query<&mut XpGem>,
     player: Single<(&Transform, &mut Health), With<Player>>,
@@ -576,6 +578,7 @@ fn wave_spawner(
 
     // Room cleared.
     dungeon.state = RoomState::Cleared;
+    sounds.write(PlaySound(Sfx::Clear));
     let gold = clear_gold(dungeon.kind, dungeon.floor);
     run.gold += gold;
     spawn_banner(
@@ -675,6 +678,7 @@ fn boss_logic(
     time: Res<Time>,
     assets: Res<GameAssets>,
     dungeon: Res<Dungeon>,
+    mut sounds: MessageWriter<PlaySound>,
     player: Single<&Transform, (With<Player>, Without<Boss>)>,
     mut bosses: Query<(&Transform, &mut Boss, &Enemy)>,
 ) {
@@ -689,6 +693,7 @@ fn boss_logic(
         if boss.bolt_timer <= 0.0 {
             boss.bolt_timer = if enraged { 1.9 } else { 2.8 };
             boss.spin += 0.37;
+            sounds.write(PlaySound(Sfx::Boss));
             let count = if enraged {
                 pattern.ring_enraged
             } else {
@@ -744,6 +749,7 @@ fn use_doors(
     stats: Res<Stats>,
     mut dungeon: ResMut<Dungeon>,
     mut run: ResMut<RunStats>,
+    mut sounds: MessageWriter<PlaySound>,
     rooms: Query<Entity, With<RoomEntity>>,
     doors: Query<(&Transform, &Door)>,
     player: Single<(&mut Transform, &mut Health), (With<Player>, Without<Door>)>,
@@ -763,6 +769,7 @@ fn use_doors(
         return;
     };
 
+    sounds.write(PlaySound(Sfx::Door));
     let kind = match target {
         DoorTarget::Room(kind) => {
             dungeon.layer += 1;
@@ -796,6 +803,7 @@ fn interact_props(
     mut dungeon: ResMut<Dungeon>,
     mut run: ResMut<RunStats>,
     mut pending: ResMut<PendingLevelUps>,
+    mut sounds: MessageWriter<PlaySound>,
     chests: Query<(Entity, &Transform), With<Chest>>,
     mut items: Query<(Entity, &Transform, &mut ShopItem)>,
     player: Single<(&Transform, &mut Health), (With<Player>, Without<Chest>, Without<ShopItem>)>,
@@ -811,6 +819,7 @@ fn interact_props(
         }
         commands.entity(entity).try_despawn();
         pending.0 += 1;
+        sounds.write(PlaySound(Sfx::Coin));
         let gold = clear_gold(RoomKind::Treasure, dungeon.floor);
         run.gold += gold;
         spawn_banner(
@@ -844,6 +853,7 @@ fn interact_props(
             continue;
         }
         run.gold -= item.price;
+        sounds.write(PlaySound(Sfx::Coin));
         match item.offer {
             ShopOffer::Heal => {
                 health.current = (health.current + health.max * 0.5).min(health.max);

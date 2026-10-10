@@ -9,6 +9,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GameSet,
     assets::GameAssets,
+    audio::{PlaySound, Sfx},
     enemy::{Enemy, EnemyGrid, HIT_FLASH_SECS, MAX_ENEMY_RADIUS},
     player::{Health, PLAYER_RADIUS, Player, flash_hurt},
     progression::spawn_gem,
@@ -66,6 +67,7 @@ fn apply_damage(
     assets: Res<GameAssets>,
     mut rng: ResMut<GameRng>,
     mut run: ResMut<RunStats>,
+    mut sounds: MessageWriter<PlaySound>,
     mut messages: MessageReader<DamageEnemy>,
     mut enemies: Query<(&Transform, &mut Enemy)>,
     numbers: Query<(), With<DamageNumber>>,
@@ -82,6 +84,7 @@ fn apply_damage(
 
         enemy.health -= message.amount;
         enemy.hit_flash = HIT_FLASH_SECS;
+        sounds.write(PlaySound(Sfx::Hit));
 
         if visible_numbers < MAX_DAMAGE_NUMBERS && message.amount >= 1.0 {
             visible_numbers += 1;
@@ -119,6 +122,7 @@ fn apply_damage(
 
         let position = transform.translation.truncate();
         run.kills += 1;
+        sounds.write(PlaySound(Sfx::Kill));
         run.gold += enemy.kind.gold();
         spawn_gem(&mut commands, &assets, position, enemy.xp);
         let material = assets.enemy_material(enemy.kind);
@@ -150,6 +154,7 @@ fn contact_damage(
     enemies: Query<&Enemy>,
     skills: Res<MovementSkills>,
     mut shake: ResMut<CameraShake>,
+    mut sounds: MessageWriter<PlaySound>,
     player: Single<(&Transform, &mut Health, &mut Player)>,
 ) {
     if skills.is_invulnerable() {
@@ -177,6 +182,7 @@ fn contact_damage(
         health.current -= dps * time.delta_secs();
         flash_hurt(&mut player);
         shake.add_trauma(2.4 * time.delta_secs());
+        sounds.write(PlaySound(Sfx::Hurt));
     }
 }
 

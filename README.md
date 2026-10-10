@@ -86,6 +86,7 @@ src/
 ├── lib.rs            GamePlugin, system set ordering (GameSet)
 ├── states.rs         AppState (menu / in game / game over) + GamePhase sub-state
 ├── run.rs            per-run resources: seed, RNG, stats, timer, pause
+├── audio.rs          sound effects, ambient loop, volume
 ├── assets.rs         sprite handles and shared meshes/materials
 ├── animation.rs      two-frame walk cycles
 ├── world.rs          camera follow, endlessly wrapping forest decoration

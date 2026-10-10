@@ -7,6 +7,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    audio::{PlaySound, Sfx},
     combat::DamageEnemy,
     enemy::{Enemy, EnemyGrid, MAX_ENEMY_RADIUS},
     logic::stats::{AuraStats, MissileStats, RuneStats},
@@ -157,6 +158,7 @@ fn fire_missiles(
     assets: Res<GameAssets>,
     stats: Res<Stats>,
     mut timers: ResMut<WeaponTimers>,
+    mut sounds: MessageWriter<PlaySound>,
     player: Single<(&Transform, &Player)>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -191,6 +193,7 @@ fn fire_missiles(
 
     if main_ready {
         timers.missile_cooldown = stats.missile.cooldown;
+        sounds.write(PlaySound(Sfx::Shoot));
         spawn_volley(&mut commands, &assets, &stats, origin, aim, 1.0);
         for echo in 1..=stats.missile.echo_count() {
             timers.pending_echoes.push(echo as f32 * ECHO_DELAY);

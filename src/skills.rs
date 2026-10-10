@@ -8,6 +8,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    audio::{PlaySound, Sfx},
     logic::{
         skills::{Cooldown, limit_distance},
         stats::DashStats,
@@ -100,6 +101,7 @@ fn trigger_skills(
     assets: Res<GameAssets>,
     stats: Res<Stats>,
     mut skills: ResMut<MovementSkills>,
+    mut sounds: MessageWriter<PlaySound>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
     player: Single<(&mut Transform, &Player)>,
@@ -114,6 +116,7 @@ fn trigger_skills(
         let duration = stats.dash.duration();
         skills.dash_direction = input_direction(&keys).unwrap_or(player.facing);
         skills.dash_remaining = duration;
+        sounds.write(PlaySound(Sfx::Dash));
         skills.invulnerable = skills.invulnerable.max(duration);
     }
 
@@ -122,6 +125,7 @@ fn trigger_skills(
         && skills.blink.trigger(stats.blink.cooldown())
     {
         let range = stats.blink.range();
+        sounds.write(PlaySound(Sfx::Blink));
         let origin = transform.translation.truncate();
         let (camera, camera_transform) = *camera;
         let aim = cursor_world_position(&window, camera, camera_transform)

@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    audio::{PlaySound, Sfx},
     dungeon::RoomEntity,
     enemy::Enemy,
     player::{Health, PLAYER_RADIUS, Player, flash_hurt},
@@ -133,6 +134,7 @@ fn bolt_hits(
     mut commands: Commands,
     skills: Res<MovementSkills>,
     mut shake: ResMut<CameraShake>,
+    mut sounds: MessageWriter<PlaySound>,
     bolts: Query<(Entity, &Transform, &EnemyBolt)>,
     player: Single<(&Transform, &mut Health, &mut Player), Without<EnemyBolt>>,
 ) {
@@ -148,6 +150,7 @@ fn bolt_hits(
             health.current -= bolt.damage;
             flash_hurt(&mut player);
             shake.add_trauma(0.35);
+            sounds.write(PlaySound(Sfx::Hurt));
             commands.entity(entity).try_despawn();
         }
     }
