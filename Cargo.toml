@@ -1,0 +1,42 @@
+[package]
+name = "rust-rogue-like"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "A fantasy survivor-roguelike built with Rust and Bevy"
+license = "MIT"
+readme = "README.md"
+keywords = ["game", "bevy", "roguelike", "survivors"]
+categories = ["games"]
+
+[dependencies]
+# Only the 2D and UI parts of Bevy: keeps compile times and the WASM bundle smaller.
+bevy = { version = "0.20", default-features = false, features = ["2d", "ui"] }
+
+[features]
+# Faster iteration during development: `cargo run --features dev`
+# (dynamic linking is not available on WASM, so never enable this for web builds).
+dev = ["bevy/dynamic_linking", "bevy/dev"]
+
+# Compile our own code with some optimizations and all dependencies fully optimized.
+# Bevy is very slow in pure debug builds; this keeps `cargo run` playable.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+# Smaller binaries for the browser build.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+strip = "debuginfo"
+
+[lints.clippy]
+# Bevy systems routinely take many parameters and complex query types.
+too_many_arguments = "allow"
+type_complexity = "allow"

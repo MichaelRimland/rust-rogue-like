@@ -1,0 +1,59 @@
+# Builds the browser version and publishes it to GitHub Pages.
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build WASM
+        run: cargo build --profile wasm-release --target wasm32-unknown-unknown
+
+      - name: Install matching wasm-bindgen-cli
+        run: |
+          # The CLI must have exactly the same version as the wasm-bindgen crate in Cargo.lock.
+          VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "wasm-bindgen") | .version')
+          echo "wasm-bindgen $VERSION"
+          cargo install wasm-bindgen-cli --version "$VERSION" --locked
+
+      - name: Generate JS bindings
+        run: |
+          wasm-bindgen --out-dir dist --out-name rust_rogue_like --target web --no-typescript \
+            target/wasm32-unknown-unknown/wasm-release/rust-rogue-like.wasm
+          cp web/index.html dist/
+          # Copy game assets once the project has some.
+          if [ -d assets ]; then cp -r assets dist/; fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
