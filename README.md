@@ -17,10 +17,10 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   Holy Aura (damage field) and Orbiting Runes
 - **Weapon evolutions**: max out the right ingredients and a spell fuses into something new
   (Sanctum, Prism Bolt, Arcane Tempest)
-- **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps.
-  Movement skills (Dash, Blink) and spell modifiers (Fork, Chain, Spell Echo, Impact Burst,
-  Searing Touch, extra projectiles, piercing) are
-  not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
+- **Level-up choices**: pick one of three rolled upgrades. Movement skills (Dash, Blink)
+  and spell modifiers (Fork, Chain, Spell Echo, Impact Burst, Searing Touch, extra
+  projectiles, piercing) are not given upfront: you need luck on the roll, and every pick
+  can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
 - **Two modes**: a **Dungeon** of three floors with rooms, door choices, shops, treasure and
   bosses, and the original **Endless** survival mode
@@ -36,9 +36,13 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 | Mouse | Aim the Arcane Missile (it fires automatically) |
 | `Space` | Dash: short burst in the movement direction, invulnerable while dashing (unlocked via level-up) |
 | Right mouse button | Blink: teleport towards the cursor, limited range (unlocked via level-up) |
-| `1` `2` `3` | Choose an upgrade |
+| `1` `2` `3` | Choose an upgrade; in the main menu: Dungeon, Endless, Shrine |
 | `Esc` / `P` | Pause |
 | `Enter` / `Space` | Start / restart |
+| `-` `+` / `M` | Volume down / up / mute |
+
+In the dungeon, walk into a door after a room is cleared to continue; in a shop, walk onto an
+item to buy it.
 
 ## Building
 
@@ -74,6 +78,17 @@ cp web/index.html dist/
 ```
 
 Pushing to `main` builds and deploys this automatically to GitHub Pages (see `.github/workflows/deploy.yml`).
+
+## Tools
+
+| Command | What it does |
+| --- | --- |
+| `cargo run -- --autoplay 30` | Unattended bot run that prints frame-time statistics and exits (smoke test) |
+| `cargo run -- --autoplay 30 --enemies 5000 --endless` | Benchmark with a crowd |
+| `cargo run -- --autoplay 30 --screenshot out.png` | Also saves a screenshot of the window |
+| `python tools/draw_sprites.py` | Redraws all sprites from their character grids (fixed palette) |
+| `python tools/make_sounds.py` | Synthesizes the sound effects and the ambient loop |
+| `python tools/process_sprites.py` | Fits AI-generated art to the sprite size and palette |
 
 ## Architecture
 
