@@ -22,6 +22,10 @@ pub struct MissileStats {
     pub burst_level: u32,
     /// Searing Touch support: 0 means hits do not set enemies on fire.
     pub burn_level: u32,
+    /// Prism Bolt evolution (Fork + Chain at max level).
+    pub prism: bool,
+    /// Arcane Tempest evolution (Spell Echo at max level and a big volley).
+    pub tempest: bool,
 }
 
 impl MissileStats {
@@ -45,7 +49,30 @@ impl MissileStats {
 
     /// How many extra times each volley is repeated.
     pub fn echo_count(&self) -> u32 {
-        self.echo_level
+        self.echo_level + u32::from(self.tempest)
+    }
+
+    /// Damage of echoed volleys relative to the original volley.
+    pub fn echo_damage_factor(&self) -> f32 {
+        if self.tempest {
+            1.0
+        } else {
+            Self::ECHO_DAMAGE_FACTOR
+        }
+    }
+
+    /// Damage of a forked bolt relative to the bolt it split from.
+    pub fn fork_damage_factor(&self) -> f32 {
+        if self.prism {
+            0.9
+        } else {
+            Self::FORK_DAMAGE_FACTOR
+        }
+    }
+
+    /// How many times a forked bolt may jump to a new enemy.
+    pub fn fork_chains(&self) -> u32 {
+        u32::from(self.prism)
     }
 
     /// Explosion radius on hit, `0.0` without Impact Burst.
@@ -120,6 +147,8 @@ impl BlinkStats {
 pub struct AuraStats {
     /// 0 means the weapon is not unlocked yet.
     pub level: u32,
+    /// Set by the Sanctum evolution (Holy Aura + Orbiting Runes at max level).
+    pub evolved: bool,
 }
 
 impl AuraStats {
@@ -128,11 +157,13 @@ impl AuraStats {
     pub const TICK: f32 = 0.5;
 
     pub fn radius(&self) -> f32 {
-        60.0 + 15.0 * self.level as f32
+        let base = 60.0 + 15.0 * self.level as f32;
+        if self.evolved { base * 1.4 } else { base }
     }
 
     pub fn damage_per_tick(&self) -> f32 {
-        3.0 + 2.5 * self.level as f32
+        let base = 3.0 + 2.5 * self.level as f32;
+        if self.evolved { base * 2.0 } else { base }
     }
 }
 
@@ -141,6 +172,8 @@ impl AuraStats {
 pub struct RuneStats {
     /// 0 means the weapon is not unlocked yet.
     pub level: u32,
+    /// Set by the Sanctum evolution (Holy Aura + Orbiting Runes at max level).
+    pub evolved: bool,
 }
 
 impl RuneStats {
@@ -150,7 +183,11 @@ impl RuneStats {
     pub const HIT_RADIUS: f32 = 12.0;
 
     pub fn count(&self) -> u32 {
-        if self.level == 0 { 0 } else { self.level + 1 }
+        match (self.level, self.evolved) {
+            (0, _) => 0,
+            (level, false) => level + 1,
+            (level, true) => level + 3,
+        }
     }
 
     pub fn orbit_radius(&self) -> f32 {
@@ -163,7 +200,8 @@ impl RuneStats {
     }
 
     pub fn damage_per_tick(&self) -> f32 {
-        5.0 + 3.0 * self.level as f32
+        let base = 5.0 + 3.0 * self.level as f32;
+        if self.evolved { base * 1.5 } else { base }
     }
 }
 
@@ -199,9 +237,17 @@ impl Default for PlayerStats {
                 echo_level: 0,
                 burst_level: 0,
                 burn_level: 0,
+                prism: false,
+                tempest: false,
             },
-            aura: AuraStats { level: 0 },
-            runes: RuneStats { level: 0 },
+            aura: AuraStats {
+                level: 0,
+                evolved: false,
+            },
+            runes: RuneStats {
+                level: 0,
+                evolved: false,
+            },
             dash: DashStats { level: 0 },
             blink: BlinkStats { level: 0 },
         }
@@ -229,6 +275,10 @@ pub enum Upgrade {
     Regeneration,
     Dash,
     Blink,
+    /// Evolutions: only offered once their ingredients are maxed out.
+    EvolveSanctum,
+    EvolvePrism,
+    EvolveTempest,
 }
 
 const MIN_MISSILE_COOLDOWN: f32 = 0.25;
@@ -236,10 +286,12 @@ const MAX_MISSILE_COUNT: u32 = 6;
 const MAX_MISSILE_PIERCE: u32 = 4;
 const MAX_MOVE_SPEED: f32 = 260.0;
 const MAX_MISSILE_SPEED: f32 = 900.0;
+/// Volley size needed for the Arcane Tempest evolution.
+const EVOLVE_TEMPEST_VOLLEY: u32 = 4;
 const MAX_PICKUP_RADIUS: f32 = 250.0;
 
 impl Upgrade {
-    pub const ALL: [Upgrade; 18] = [
+    pub const ALL: [Upgrade; 21] = [
         Upgrade::MissileDamage,
         Upgrade::MissileRate,
         Upgrade::MissileCount,
@@ -258,6 +310,9 @@ impl Upgrade {
         Upgrade::Regeneration,
         Upgrade::Dash,
         Upgrade::Blink,
+        Upgrade::EvolveSanctum,
+        Upgrade::EvolvePrism,
+        Upgrade::EvolveTempest,
     ];
 
     /// Health restored immediately when `MaxHealth` is picked.
@@ -293,6 +348,9 @@ impl Upgrade {
             Upgrade::Dash => format!("Dash Lv {}", stats.dash.level + 1),
             Upgrade::Blink if stats.blink.level == 0 => "NEW: Blink [Right Mouse]".into(),
             Upgrade::Blink => format!("Blink Lv {}", stats.blink.level + 1),
+            Upgrade::EvolveSanctum => "EVOLVE: Sanctum".into(),
+            Upgrade::EvolvePrism => "EVOLVE: Prism Bolt".into(),
+            Upgrade::EvolveTempest => "EVOLVE: Arcane Tempest".into(),
         }
     }
 
@@ -342,6 +400,11 @@ impl Upgrade {
             Upgrade::Dash => "Dash farther, shorter cooldown".into(),
             Upgrade::Blink if stats.blink.level == 0 => "Teleport towards the cursor".into(),
             Upgrade::Blink => "Blink farther, shorter cooldown".into(),
+            Upgrade::EvolveSanctum => {
+                "Holy Aura and Runes fuse: bigger, twice the damage, 2 more runes".into()
+            }
+            Upgrade::EvolvePrism => "Forked bolts hit for 90% damage and jump once more".into(),
+            Upgrade::EvolveTempest => "One more echo, and echoes deal full damage".into(),
         }
     }
 
@@ -359,6 +422,21 @@ impl Upgrade {
             Upgrade::MissileBurn => stats.missile.burn_level < MissileStats::MAX_BURN_LEVEL,
             Upgrade::Dash => stats.dash.level < DashStats::MAX_LEVEL,
             Upgrade::Blink => stats.blink.level < BlinkStats::MAX_LEVEL,
+            Upgrade::EvolveSanctum => {
+                stats.aura.level >= AuraStats::MAX_LEVEL
+                    && stats.runes.level >= RuneStats::MAX_LEVEL
+                    && !stats.aura.evolved
+            }
+            Upgrade::EvolvePrism => {
+                stats.missile.fork_level >= MissileStats::MAX_FORK_LEVEL
+                    && stats.missile.chain_level >= MissileStats::MAX_CHAIN_LEVEL
+                    && !stats.missile.prism
+            }
+            Upgrade::EvolveTempest => {
+                stats.missile.echo_level >= MissileStats::MAX_ECHO_LEVEL
+                    && stats.missile.count >= EVOLVE_TEMPEST_VOLLEY
+                    && !stats.missile.tempest
+            }
             Upgrade::HolyAura => stats.aura.level < AuraStats::MAX_LEVEL,
             Upgrade::OrbitingRunes => stats.runes.level < RuneStats::MAX_LEVEL,
             Upgrade::MoveSpeed => stats.move_speed < MAX_MOVE_SPEED,
@@ -413,6 +491,12 @@ impl Upgrade {
                 stats.missile.burn_level =
                     (stats.missile.burn_level + 1).min(MissileStats::MAX_BURN_LEVEL)
             }
+            Upgrade::EvolveSanctum => {
+                stats.aura.evolved = true;
+                stats.runes.evolved = true;
+            }
+            Upgrade::EvolvePrism => stats.missile.prism = true,
+            Upgrade::EvolveTempest => stats.missile.tempest = true,
             Upgrade::MaxHealth => stats.max_health += 20.0,
             Upgrade::MoveSpeed => stats.move_speed = (stats.move_speed * 1.1).min(MAX_MOVE_SPEED),
             Upgrade::PickupRadius => {
@@ -435,6 +519,8 @@ pub fn roll_upgrades(rng: &mut Rng, stats: &PlayerStats, n: usize) -> Vec<Upgrad
             let weight = match u {
                 Upgrade::HolyAura if stats.aura.level == 0 => 2.0,
                 Upgrade::OrbitingRunes if stats.runes.level == 0 => 2.0,
+                // Evolutions are the reward for a focused build, so they come up often.
+                Upgrade::EvolveSanctum | Upgrade::EvolvePrism | Upgrade::EvolveTempest => 4.0,
                 _ => 1.0,
             };
             (u, weight)
@@ -599,6 +685,47 @@ mod tests {
             assert!(guard < 100, "MissileSpeed never maxes out");
         }
         assert!(stats.missile.speed <= MAX_MISSILE_SPEED);
+    }
+
+    #[test]
+    fn evolutions_need_their_ingredients_and_apply_once() {
+        let mut stats = PlayerStats::default();
+        for evolution in [
+            Upgrade::EvolveSanctum,
+            Upgrade::EvolvePrism,
+            Upgrade::EvolveTempest,
+        ] {
+            assert!(!evolution.is_available(&stats), "{evolution:?} too early");
+        }
+
+        for _ in 0..10 {
+            Upgrade::HolyAura.apply(&mut stats);
+            Upgrade::OrbitingRunes.apply(&mut stats);
+            Upgrade::MissileFork.apply(&mut stats);
+            Upgrade::MissileChain.apply(&mut stats);
+            Upgrade::MissileEcho.apply(&mut stats);
+            Upgrade::MissileCount.apply(&mut stats);
+        }
+        let (aura_radius, rune_count) = (stats.aura.radius(), stats.runes.count());
+        let echo = stats.missile.echo_count();
+        for evolution in [
+            Upgrade::EvolveSanctum,
+            Upgrade::EvolvePrism,
+            Upgrade::EvolveTempest,
+        ] {
+            assert!(evolution.is_available(&stats), "{evolution:?} not offered");
+            evolution.apply(&mut stats);
+            assert!(
+                !evolution.is_available(&stats),
+                "{evolution:?} offered twice"
+            );
+        }
+        assert!(stats.aura.radius() > aura_radius);
+        assert_eq!(stats.runes.count(), rune_count + 2);
+        assert_eq!(stats.missile.echo_count(), echo + 1);
+        assert!(stats.missile.fork_damage_factor() > MissileStats::FORK_DAMAGE_FACTOR);
+        assert_eq!(stats.missile.fork_chains(), 1);
+        assert_eq!(stats.missile.echo_damage_factor(), 1.0);
     }
 
     #[test]

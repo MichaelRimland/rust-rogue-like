@@ -197,7 +197,7 @@ fn fire_missiles(
         }
     }
     for _ in 0..due_echoes {
-        let factor = MissileStats::ECHO_DAMAGE_FACTOR;
+        let factor = stats.missile.echo_damage_factor();
         spawn_volley(&mut commands, &assets, &stats, origin, aim, factor);
     }
 }
@@ -433,11 +433,11 @@ fn fork_projectile(
             position,
             Projectile {
                 velocity: Vec2::from_angle(angle).rotate(direction) * speed,
-                damage: parent.damage * MissileStats::FORK_DAMAGE_FACTOR,
+                damage: parent.damage * stats.missile.fork_damage_factor(),
                 pierce_left: 0,
                 lifetime: FORK_LIFETIME,
                 can_fork: false,
-                chains_left: 0,
+                chains_left: stats.missile.fork_chains(),
                 // The enemy that caused the fork must not be hit again.
                 hit: parent.hit.clone(),
             },
