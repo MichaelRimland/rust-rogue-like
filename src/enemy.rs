@@ -8,6 +8,7 @@ use crate::{
     AppState, GameSet,
     animation::WalkAnimation,
     assets::{GameAssets, SPRITE_SCALE},
+    dungeon::{ARENA_HALF, GameMode, endless_mode},
     logic::{
         enemies::{EnemyKind, RangedAttack, pick_enemy_kind},
         progression::{enemy_health_multiplier, spawn_batch_size, spawn_interval},
@@ -32,13 +33,18 @@ impl Plugin for EnemyPlugin {
                     .after(crate::player::move_player)
                     .in_set(GameSet::Movement),
             )
-            .add_systems(Update, spawn_enemies.in_set(GameSet::Progression));
+            .add_systems(
+                Update,
+                spawn_enemies
+                    .in_set(GameSet::Progression)
+                    .run_if(endless_mode),
+            );
     }
 }
 
 const GRID_CELL_SIZE: f32 = 64.0;
 /// Radius of the largest enemy; used to widen grid queries so no overlap is missed.
-pub const MAX_ENEMY_RADIUS: f32 = 22.0;
+pub const MAX_ENEMY_RADIUS: f32 = 34.0;
 const MAX_ENEMIES: usize = 500;
 const SPAWN_DISTANCE: (f32, f32) = (760.0, 860.0);
 /// Enemies farther away than this are moved back towards the player.
@@ -54,6 +60,8 @@ pub struct Enemy {
     pub radius: f32,
     pub contact_dps: f32,
     pub xp: u32,
+    /// How large the sprite is drawn, as a multiple of [`SPRITE_SCALE`].
+    pub visual_scale: f32,
     /// Remaining seconds of the "got hit" squash animation.
     pub hit_flash: f32,
     pub ranged: Option<RangedAttack>,
@@ -114,6 +122,34 @@ fn spawn_enemies(
     }
 }
 
+/// Everything that can differ between spawned enemies.
+pub(crate) struct EnemySpawn {
+    pub kind: EnemyKind,
+    pub position: Vec2,
+    pub health_multiplier: f32,
+    /// Scales the collision radius.
+    pub radius_factor: f32,
+    /// Scales the drawn sprite.
+    pub visual_factor: f32,
+    /// Multiplies the experience dropped.
+    pub xp_factor: u32,
+    pub tint: Color,
+}
+
+impl EnemySpawn {
+    pub fn new(kind: EnemyKind, position: Vec2, health_multiplier: f32) -> Self {
+        Self {
+            kind,
+            position,
+            health_multiplier,
+            radius_factor: 1.0,
+            visual_factor: 1.0,
+            xp_factor: 1,
+            tint: Color::WHITE,
+        }
+    }
+}
+
 pub(crate) fn spawn_enemy(
     commands: &mut Commands,
     assets: &GameAssets,
@@ -121,30 +157,49 @@ pub(crate) fn spawn_enemy(
     position: Vec2,
     health_multiplier: f32,
 ) {
-    let base = kind.archetype();
-    let frames = assets.enemy_frames(kind);
+    spawn_enemy_with(
+        commands,
+        assets,
+        EnemySpawn::new(kind, position, health_multiplier),
+    );
+}
+
+pub(crate) fn spawn_enemy_with(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    spawn: EnemySpawn,
+) -> Entity {
+    let base = spawn.kind.archetype();
+    let frames = assets.enemy_frames(spawn.kind);
     // Different phases keep a crowd from stepping in unison.
-    let phase = position.x.abs() as u32;
-    commands.spawn((
-        Enemy {
-            kind,
-            health: base.health * health_multiplier,
-            speed: base.speed,
-            radius: base.radius,
-            contact_dps: base.contact_dps,
-            xp: base.xp,
-            hit_flash: 0.0,
-            ranged: base.ranged,
-            // Stagger first shots so a group of archers does not fire in unison.
-            shoot_timer: base.ranged.map_or(0.0, |ranged| {
-                ranged.cooldown * (0.4 + 0.1 * (phase % 6) as f32)
-            }),
-        },
-        Sprite::from_image(frames[0].clone()),
-        WalkAnimation::new(frames, phase),
-        Transform::from_xyz(position.x, position.y, 2.0).with_scale(Vec3::splat(SPRITE_SCALE)),
-        DespawnOnExit(AppState::InGame),
-    ));
+    let phase = spawn.position.x.abs() as u32;
+    let visual_scale = SPRITE_SCALE * spawn.visual_factor;
+    let mut sprite = Sprite::from_image(frames[0].clone());
+    sprite.color = spawn.tint;
+    commands
+        .spawn((
+            Enemy {
+                kind: spawn.kind,
+                health: base.health * spawn.health_multiplier,
+                speed: base.speed,
+                radius: base.radius * spawn.radius_factor,
+                contact_dps: base.contact_dps,
+                xp: base.xp * spawn.xp_factor,
+                visual_scale,
+                hit_flash: 0.0,
+                ranged: base.ranged,
+                // Stagger first shots so a group of archers does not fire in unison.
+                shoot_timer: base.ranged.map_or(0.0, |ranged| {
+                    ranged.cooldown * (0.4 + 0.1 * (phase % 6) as f32)
+                }),
+            },
+            sprite,
+            WalkAnimation::new(frames, phase),
+            Transform::from_xyz(spawn.position.x, spawn.position.y, 2.0)
+                .with_scale(Vec3::splat(visual_scale)),
+            DespawnOnExit(AppState::InGame),
+        ))
+        .id()
 }
 
 /// Enemies walk straight at the player and push each other apart so they form a
@@ -152,6 +207,7 @@ pub(crate) fn spawn_enemy(
 fn move_enemies(
     time: Res<Time>,
     grid: Res<EnemyGrid>,
+    mode: Res<GameMode>,
     player: Single<&Transform, (With<Player>, Without<Enemy>)>,
     mut enemies: Query<(Entity, &mut Transform, &mut Sprite, &Enemy)>,
 ) {
@@ -191,6 +247,12 @@ fn move_enemies(
         let delta = velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;
+        if *mode == GameMode::Dungeon {
+            // Rooms have walls: kiting archers must not retreat out of the arena.
+            let limit = ARENA_HALF - Vec2::splat(enemy.radius.min(30.0));
+            transform.translation.x = transform.translation.x.clamp(-limit.x, limit.x);
+            transform.translation.y = transform.translation.y.clamp(-limit.y, limit.y);
+        }
         // Enemies lower on screen are drawn in front of the ones behind them.
         transform.translation.z = 2.0 - transform.translation.y * 0.0001;
         // The sprites look to the right by default.
@@ -209,7 +271,11 @@ fn animate_hit_flash(time: Res<Time>, mut enemies: Query<(&mut Transform, &mut E
         }
         enemy.hit_flash = (enemy.hit_flash - dt).max(0.0);
         let squash = 1.0 + 0.35 * (enemy.hit_flash / HIT_FLASH_SECS);
-        transform.scale = Vec3::new(SPRITE_SCALE * squash, SPRITE_SCALE / squash, 1.0);
+        transform.scale = Vec3::new(
+            enemy.visual_scale * squash,
+            enemy.visual_scale / squash,
+            1.0,
+        );
     }
 }
 

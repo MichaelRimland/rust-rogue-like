@@ -106,6 +106,16 @@ impl EnemyKind {
         }
     }
 
+    /// Gold dropped when this kind dies.
+    pub fn gold(self) -> u32 {
+        match self {
+            EnemyKind::Goblin => 1,
+            EnemyKind::Skeleton => 2,
+            EnemyKind::Archer => 3,
+            EnemyKind::Ogre => 5,
+        }
+    }
+
     /// Relative spawn weight at a point of the run. Zero means "not yet".
     pub fn spawn_weight(self, elapsed_secs: f32) -> f32 {
         match self {

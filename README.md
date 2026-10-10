@@ -20,6 +20,8 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   Searing Touch, extra projectiles, piercing) are
   not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, archers whose bolts you have to dodge), tougher monsters
+- **Two modes**: a **Dungeon** of three floors with rooms, door choices, shops, treasure and
+  bosses, and the original **Endless** survival mode
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
 - Runs natively (Windows, macOS, Linux) and in the browser via WebAssembly
 
@@ -87,6 +89,7 @@ src/
 ├── world.rs          camera follow, endlessly wrapping forest decoration
 ├── player.rs         movement, health, regeneration, death
 ├── skills.rs         movement skills: dash and blink
+├── dungeon.rs        dungeon mode: rooms, doors, shop, treasure, boss
 ├── enemy.rs          spawning, steering with separation, spatial grid
 ├── enemy_fire.rs     projectiles shot by ranged enemies
 ├── weapons.rs        Arcane Missile, Holy Aura, Orbiting Runes
@@ -98,6 +101,7 @@ src/
     ├── stats.rs      player stats, upgrades, upgrade rolling
     ├── progression.rs XP curve and difficulty curves
     ├── enemies.rs    enemy archetypes and spawn tables
+    ├── dungeon.rs    floor plans, wave sizes, difficulty per room
     └── rng.rs        deterministic SplitMix64 RNG
 ```
 
@@ -150,7 +154,7 @@ is not measured yet.
 
 - [x] **Milestone 1: core loop** — movement, auto-attacks, enemies, XP, level-ups, game over
 - [x] **Milestone 2: performance** — benchmark mode, measured 5 000 enemies at 230 FPS (see above)
-- [ ] **Milestone 3: dungeon** — procedurally generated rooms (arenas, shops, treasure), doors that open after a wave
+- [x] **Milestone 3: dungeon** — three floors of procedurally generated rooms (arenas, elites, shops, treasure, rest), doors that open after the fight, a boss at the end of each floor
 - [ ] **Milestone 4: content** — data-driven weapons and enemies (RON), weapon evolutions, bosses
 - [ ] **Milestone 5: polish** — pixel-art sprites, sound, screen shake, meta-progression, save game
 

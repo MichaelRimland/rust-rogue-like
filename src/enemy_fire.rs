@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    dungeon::RoomEntity,
     enemy::Enemy,
     player::{Health, PLAYER_RADIUS, Player, flash_hurt},
     skills::MovementSkills,
@@ -76,19 +77,31 @@ fn enemy_shooting(
         enemy.shoot_timer = ranged.cooldown;
 
         let velocity = offset.normalize_or_zero() * ranged.projectile_speed;
-        commands.spawn((
-            EnemyBolt {
-                velocity,
-                damage: ranged.damage,
-                lifetime: BOLT_LIFETIME,
-            },
-            Sprite::from_image(assets.enemy_bolt.clone()),
-            Transform::from_xyz(origin.x, origin.y, 3.8)
-                .with_rotation(Quat::from_rotation_z(velocity.to_angle()))
-                .with_scale(Vec3::splat(SPRITE_SCALE)),
-            DespawnOnExit(AppState::InGame),
-        ));
+        spawn_bolt(&mut commands, &assets, origin, velocity, ranged.damage);
     }
+}
+
+/// Spawns one enemy bolt. Bolts belong to the current room, so leaving a room clears them.
+pub(crate) fn spawn_bolt(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    origin: Vec2,
+    velocity: Vec2,
+    damage: f32,
+) {
+    commands.spawn((
+        EnemyBolt {
+            velocity,
+            damage,
+            lifetime: BOLT_LIFETIME,
+        },
+        RoomEntity,
+        Sprite::from_image(assets.enemy_bolt.clone()),
+        Transform::from_xyz(origin.x, origin.y, 3.8)
+            .with_rotation(Quat::from_rotation_z(velocity.to_angle()))
+            .with_scale(Vec3::splat(SPRITE_SCALE)),
+        DespawnOnExit(AppState::InGame),
+    ));
 }
 
 fn move_bolts(

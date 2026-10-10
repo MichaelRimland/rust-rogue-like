@@ -5,6 +5,7 @@
 //! unit test and easy to reason about. The Bevy plugins in the rest of the crate are
 //! thin adapters that feed ECS data into these functions.
 
+pub mod dungeon;
 pub mod enemies;
 pub mod progression;
 pub mod rng;

@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     AppState, GameSet,
     assets::{GameAssets, SPRITE_SCALE},
+    dungeon::GameMode,
     player::Player,
     run::GameRng,
 };
@@ -131,9 +132,14 @@ fn follow_player(
     mut camera: Single<&mut Transform, With<Camera2d>>,
     mut ground: Single<&mut Transform, (With<Ground>, Without<Camera2d>, Without<Player>)>,
     mut shake: ResMut<CameraShake>,
+    mode: Res<GameMode>,
 ) {
     let dt = time.delta_secs();
-    let target = player.translation.truncate();
+    // Dungeon rooms fit on screen, so the camera stays centered on the arena.
+    let target = match *mode {
+        GameMode::Dungeon => Vec2::ZERO,
+        GameMode::Endless => player.translation.truncate(),
+    };
     // Frame-rate independent exponential smoothing.
     let t = 1.0 - (-CAMERA_FOLLOW_SPEED * dt).exp();
     shake.base = shake.base.lerp(target, t);

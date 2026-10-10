@@ -119,6 +119,7 @@ fn apply_damage(
 
         let position = transform.translation.truncate();
         run.kills += 1;
+        run.gold += enemy.kind.gold();
         spawn_gem(&mut commands, &assets, position, enemy.xp);
         let material = assets.enemy_material(enemy.kind);
         for _ in 0..DEATH_PARTICLES {

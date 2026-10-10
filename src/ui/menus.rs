@@ -7,6 +7,8 @@ use super::{
 };
 use crate::{
     AppState, GamePhase,
+    dungeon::{Dungeon, GameMode},
+    logic::dungeon::FLOORS,
     run::{RunStats, Xp},
 };
 
@@ -30,14 +32,19 @@ fn spawn_main_menu(mut commands: Commands) {
         DespawnOnExit(AppState::MainMenu),
         children![
             label("RUST ROGUE-LIKE", 72.0, ACCENT_COLOR),
-            label("Survive the night in the cursed forest.", 22.0, TEXT_COLOR),
+            label("Fight through the cursed dungeon.", 22.0, TEXT_COLOR),
             (Node {
                 height: px(30.0),
                 ..default()
             },),
             label("WASD / Arrow keys  -  move", 18.0, MUTED_TEXT_COLOR),
             label(
-                "Spells cast themselves  -  just stay alive",
+                "Spells cast themselves towards the mouse cursor",
+                18.0,
+                MUTED_TEXT_COLOR
+            ),
+            label(
+                "Space  -  dash      Right mouse  -  blink      (found as upgrades)",
                 18.0,
                 MUTED_TEXT_COLOR
             ),
@@ -50,13 +57,25 @@ fn spawn_main_menu(mut commands: Commands) {
                 height: px(30.0),
                 ..default()
             },),
-            label("Press Enter or Space to begin", 26.0, TEXT_COLOR),
+            label("1  -  Dungeon (floors, rooms, bosses)", 26.0, TEXT_COLOR),
+            label("2  -  Endless survival", 26.0, TEXT_COLOR),
+            label("Enter / Space  -  Dungeon", 18.0, MUTED_TEXT_COLOR),
         ],
     ));
 }
 
-fn main_menu_input(keys: Res<ButtonInput<KeyCode>>, mut next: ResMut<NextState<AppState>>) {
-    if keys.any_just_pressed(CONFIRM_KEYS) {
+fn main_menu_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut mode: ResMut<GameMode>,
+    mut next: ResMut<NextState<AppState>>,
+) {
+    if keys.any_just_pressed([KeyCode::Digit2, KeyCode::Numpad2]) {
+        *mode = GameMode::Endless;
+        next.set(AppState::InGame);
+    } else if keys.any_just_pressed([KeyCode::Digit1, KeyCode::Numpad1])
+        || keys.any_just_pressed(CONFIRM_KEYS)
+    {
+        *mode = GameMode::Dungeon;
         next.set(AppState::InGame);
     }
 }
@@ -74,16 +93,35 @@ fn spawn_pause_overlay(mut commands: Commands) {
     ));
 }
 
-fn spawn_game_over(mut commands: Commands, run: Res<RunStats>, xp: Res<Xp>) {
+fn spawn_game_over(
+    mut commands: Commands,
+    run: Res<RunStats>,
+    xp: Res<Xp>,
+    mode: Res<GameMode>,
+    dungeon: Res<Dungeon>,
+) {
+    let (title, color) = if run.victory {
+        ("Victory!", Color::srgb(0.98, 0.80, 0.40))
+    } else {
+        ("You have fallen", Color::srgb(0.90, 0.30, 0.30))
+    };
+    let progress = match *mode {
+        GameMode::Dungeon => format!(
+            "Reached floor {} of {}, room {}   -   {} gold",
+            dungeon.floor, FLOORS, run.room, run.gold
+        ),
+        GameMode::Endless => format!("Survived {}", format_time(run.elapsed)),
+    };
     commands.spawn((
         centered_column(14.0),
         BackgroundColor(OVERLAY_COLOR),
         DespawnOnExit(AppState::GameOver),
         children![
-            label("You have fallen", 64.0, Color::srgb(0.90, 0.30, 0.30)),
+            label(title, 64.0, color),
+            label(progress, 26.0, TEXT_COLOR),
             label(
-                format!("Survived {}", format_time(run.elapsed)),
-                26.0,
+                format!("Time {}", format_time(run.elapsed)),
+                22.0,
                 TEXT_COLOR
             ),
             label(format!("Reached level {}", xp.level), 22.0, TEXT_COLOR),

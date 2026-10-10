@@ -1,13 +1,16 @@
 //! Unattended runs for smoke tests and benchmarks (native builds only).
 //!
 //! ```text
-//! cargo run --release -- --autoplay 20            # play 20 s, then print stats and exit
-//! cargo run --release -- --autoplay 20 --enemies 5000
+//! cargo run --release -- --autoplay 20                  # dungeon mode, 20 s
+//! cargo run --release -- --autoplay 20 --endless        # endless mode
+//! cargo run --release -- --autoplay 20 --enemies 5000   # plus a crowd for benchmarks
+//! cargo run -- --autoplay 30 --screenshot shot.png      # also save a screenshot
 //! ```
 //!
-//! The game starts a run by itself, walks in circles, picks the first upgrade at every
-//! level-up and exits with the frame-time statistics. A panic therefore shows up as a
-//! non-zero exit code, which makes this a cheap end-to-end smoke test.
+//! The bot starts a run by itself, walks towards the nearest enemy (so the missiles, which
+//! fire in the facing direction without a cursor, hit something), walks through open doors,
+//! picks the first upgrade at every level-up and exits with frame-time statistics. A panic
+//! shows up as a non-zero exit code, which makes this a cheap end-to-end smoke test.
 
 use bevy::{
     input::InputSystems,
@@ -19,9 +22,11 @@ use crate::{
     AppState, GamePhase,
     assets::GameAssets,
     bench::{Bench, spawn_enemy_burst},
+    dungeon::{Door, Dungeon, GameMode},
     enemy::Enemy,
+    logic::dungeon::RoomKind,
     player::Player,
-    run::GameRng,
+    run::{GameRng, RunStats},
 };
 
 pub struct AutoplayPlugin;
@@ -38,21 +43,25 @@ impl Plugin for AutoplayPlugin {
     }
 }
 
-/// When the optional screenshot is taken, in seconds of play.
+/// Default time of the optional screenshot, in seconds of play (`--screenshot-at` changes it).
 const SCREENSHOT_AFTER_SECS: f32 = 8.0;
+/// The bot stops steering when it is this close to its target.
+const ARRIVED_DISTANCE: f32 = 12.0;
 
 #[derive(Resource)]
 struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
+    endless: bool,
     /// Saves a screenshot of the window to this path after a few seconds of play.
     screenshot: Option<String>,
+    screenshot_at: f32,
 }
 
 impl AutoplayConfig {
     fn from_args(args: impl Iterator<Item = String>) -> Option<Self> {
         let args: Vec<String> = args.collect();
-        let value = |flag: &str| {
+        let number = |flag: &str| {
             args.iter()
                 .position(|arg| arg == flag)
                 .and_then(|i| args.get(i + 1))
@@ -64,9 +73,11 @@ impl AutoplayConfig {
             .and_then(|i| args.get(i + 1))
             .cloned();
         Some(Self {
-            seconds: value("--autoplay")?,
-            enemies: value("--enemies").unwrap_or(0.0) as usize,
+            seconds: number("--autoplay")?,
+            enemies: number("--enemies").unwrap_or(0.0) as usize,
+            endless: args.iter().any(|arg| arg == "--endless"),
             screenshot,
+            screenshot_at: number("--screenshot-at").unwrap_or(SCREENSHOT_AFTER_SECS),
         })
     }
 }
@@ -75,31 +86,80 @@ impl AutoplayConfig {
 struct AutoplayStats {
     started: bool,
     screenshot_taken: bool,
+    next_report: f32,
     run_time: f32,
     frame_times: Vec<f32>,
 }
 
-/// Presses the keys a player would: confirm in menus, pick card 1, walk in circles.
+/// Presses the keys a player would: confirm in menus, pick card 1, steer towards the goal.
 fn autoplay_input(
     mut keys: ResMut<ButtonInput<KeyCode>>,
+    config: Res<AutoplayConfig>,
     state: Res<State<AppState>>,
     phase: Option<Res<State<GamePhase>>>,
     stats: Res<AutoplayStats>,
+    dungeon: Res<Dungeon>,
+    player: Query<&Transform, With<Player>>,
+    enemies: Query<&Transform, With<Enemy>>,
+    doors: Query<&Transform, With<Door>>,
 ) {
+    // Nothing releases the keys we press, so start every frame from a clean slate.
+    keys.release_all();
     match state.get() {
-        AppState::MainMenu | AppState::GameOver => keys.press(KeyCode::Enter),
+        AppState::MainMenu => {
+            keys.press(if config.endless {
+                KeyCode::Digit2
+            } else {
+                KeyCode::Enter
+            });
+        }
+        AppState::GameOver => keys.press(KeyCode::Enter),
         AppState::InGame => {
             if phase.is_some_and(|phase| *phase.get() == GamePhase::LevelUp) {
                 keys.press(KeyCode::Digit1);
             }
-            // Walk W, D, S, A in turns of two seconds each, and dash/blink when possible.
-            let key = match (stats.run_time / 2.0) as u32 % 4 {
-                0 => KeyCode::KeyW,
-                1 => KeyCode::KeyD,
-                2 => KeyCode::KeyS,
-                _ => KeyCode::KeyA,
+            let Ok(player) = player.single() else {
+                return;
             };
-            keys.press(key);
+            let here = player.translation.truncate();
+            let nearest = |transforms: &mut dyn Iterator<Item = &Transform>| {
+                transforms.map(|t| t.translation.truncate()).min_by(|a, b| {
+                    a.distance_squared(here)
+                        .total_cmp(&b.distance_squared(here))
+                })
+            };
+
+            let target = nearest(&mut enemies.iter())
+                .or_else(|| {
+                    if dungeon.is_cleared() {
+                        nearest(&mut doors.iter())
+                    } else if !dungeon.kind.is_combat() && dungeon.kind != RoomKind::Shop {
+                        // An unopened treasure chest in the middle of the room.
+                        Some(Vec2::new(0.0, 40.0))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| {
+                    // Nothing to chase: walk a slow circle.
+                    let angle = stats.run_time * 0.8;
+                    here + Vec2::from_angle(angle) * 100.0
+                });
+
+            let offset = target - here;
+            if offset.length() > ARRIVED_DISTANCE {
+                let threshold = 6.0;
+                if offset.x > threshold {
+                    keys.press(KeyCode::KeyD);
+                } else if offset.x < -threshold {
+                    keys.press(KeyCode::KeyA);
+                }
+                if offset.y > threshold {
+                    keys.press(KeyCode::KeyW);
+                } else if offset.y < -threshold {
+                    keys.press(KeyCode::KeyS);
+                }
+            }
             keys.press(KeyCode::Space);
         }
     }
@@ -110,9 +170,12 @@ fn autoplay_run(
     time: Res<Time<Real>>,
     config: Res<AutoplayConfig>,
     assets: Res<GameAssets>,
+    run_stats: Res<RunStats>,
+    dungeon: Res<Dungeon>,
     mut stats: ResMut<AutoplayStats>,
     mut bench: ResMut<Bench>,
     mut rng: ResMut<GameRng>,
+    mut mode: ResMut<GameMode>,
     player: Query<&Transform, With<Player>>,
     enemies: Query<(), With<Enemy>>,
     mut exit: MessageWriter<AppExit>,
@@ -124,6 +187,9 @@ fn autoplay_run(
         stats.started = true;
         // Nothing may kill the player during a benchmark.
         bench.god_mode = true;
+        if config.endless {
+            *mode = GameMode::Endless;
+        }
         spawn_enemy_burst(
             &mut commands,
             &assets,
@@ -134,9 +200,25 @@ fn autoplay_run(
     }
 
     stats.run_time += time.delta_secs();
+    if stats.run_time >= stats.next_report {
+        stats.next_report += 20.0;
+        println!(
+            "[{:>5.0}s] floor {} room {} {:?} {:?}, {} enemies, {} kills, {} gold, player at ({:.0}, {:.0})",
+            stats.run_time,
+            dungeon.floor,
+            run_stats.room,
+            dungeon.kind,
+            dungeon.state,
+            enemies.iter().count(),
+            run_stats.kills,
+            run_stats.gold,
+            player.translation.x,
+            player.translation.y,
+        );
+    }
     if let Some(path) = &config.screenshot
         && !stats.screenshot_taken
-        && stats.run_time > SCREENSHOT_AFTER_SECS
+        && stats.run_time > config.screenshot_at
     {
         stats.screenshot_taken = true;
         commands
@@ -161,7 +243,7 @@ fn autoplay_run(
     };
     println!(
         "AUTOPLAY OK: {:.1}s, {} frames, avg {:.2} ms ({:.0} FPS), p99 {:.2} ms, max {:.2} ms, \
-         {} enemies alive",
+         {} enemies alive | floor {} room {} gold {} kills {}",
         stats.run_time,
         frames.len(),
         average_ms,
@@ -169,6 +251,10 @@ fn autoplay_run(
         percentile(0.99),
         percentile(1.0),
         enemies.iter().count(),
+        run_stats.floor,
+        run_stats.room,
+        run_stats.gold,
+        run_stats.kills,
     );
     exit.write(AppExit::Success);
 }

@@ -87,6 +87,7 @@ src/animation.rs    WalkAnimation: two-frame walk cycles
 src/world.rs        camera spawn/follow, wrapping decor
 src/player.rs       Player, Health, movement, regen, hurt tint, death check
 src/skills.rs       MovementSkills (dash, blink), afterimages, i-frames
+src/dungeon.rs      GameMode, Dungeon resource, room flow, doors, shop/chest/rest, boss, HUD
 src/enemy.rs        Enemy, EnemyGrid (spatial hash), spawning, steering, wrapping, hit squash
 src/enemy_fire.rs   EnemyBolt: projectiles of ranged enemies (shooting, flight, hits on the player)
 src/weapons.rs      missiles, aura, runes (fire + hit detection)
@@ -115,8 +116,9 @@ web/index.html      page for the WASM build
 - [x] **M1 core loop** – done
 - [x] **M2 performance** – done: `--autoplay SECS --enemies N` benchmark (`autoplay.rs`),
       5 000 enemies at ~230 FPS, numbers in README
-- [ ] **M3 dungeon** – generated floors of rooms (arena, shop, treasure, elite), doors open
-      after a wave, boss at the end of a floor
+- [x] **M3 dungeon** – done: `dungeon.rs` (rooms, doors, shop, chest, rest, boss) on top of
+      `logic/dungeon.rs` (floor plans, waves, difficulty). Main menu picks Dungeon or Endless
+      (`GameMode`). 3 floors, 6 rooms each, boss at the end, victory after floor 3
 - [ ] **M4 content** – weapons/enemies data-driven from RON files, weapon evolutions
       (item A + item B → super weapon), bosses, more enemy types
 - [ ] **M5 polish** – CC0 pixel art (Kenney / itch.io), sound, screen shake, damage numbers,

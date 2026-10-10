@@ -12,6 +12,7 @@ mod assets;
 mod autoplay;
 mod bench;
 mod combat;
+mod dungeon;
 mod enemy;
 mod enemy_fire;
 mod player;
@@ -70,6 +71,7 @@ impl Plugin for GamePlugin {
                 world::WorldPlugin,
                 run::RunPlugin,
                 player::PlayerPlugin,
+                dungeon::DungeonPlugin,
                 enemy::EnemyPlugin,
                 enemy_fire::EnemyFirePlugin,
                 weapons::WeaponsPlugin,

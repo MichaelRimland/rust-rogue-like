@@ -40,6 +40,11 @@ pub struct RunStats {
     pub seed: u64,
     pub elapsed: f32,
     pub kills: u32,
+    /// Dungeon mode only.
+    pub gold: u32,
+    pub floor: u32,
+    pub room: u32,
+    pub victory: bool,
 }
 
 /// Resets everything for a fresh run.
