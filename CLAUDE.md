@@ -76,7 +76,8 @@ src/main.rs         window (1280x720, fit canvas on web), adds GamePlugin
 src/lib.rs          GamePlugin, GameSet ordering: Spatial → Movement → Combat → Damage → Progression
 src/states.rs       AppState {MainMenu, InGame, GameOver}, sub-state GamePhase {Running, LevelUp, Paused}
 src/run.rs          GameRng, Stats (PlayerStats), Xp, RunStats; start_run; pause toggle
-src/assets.rs       GameAssets: shared meshes + materials
+src/assets.rs       GameAssets: sprite handles, shared circle mesh, SPRITE_SCALE
+src/animation.rs    WalkAnimation: two-frame walk cycles
 src/world.rs        camera spawn/follow, wrapping decor
 src/player.rs       Player, Health, movement, regen, hurt tint, death check
 src/skills.rs       MovementSkills (dash, blink), afterimages, i-frames

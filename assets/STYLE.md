@@ -46,6 +46,12 @@ Defined in `tools/palette.hex` (one `#RRGGBB` per line). Groups:
 | ghost teal | fog, ghostly accents, XP gems |
 | gold | holy aura, pickups, UI highlights |
 
+## Current sprites
+
+The sprites in `assets/sprites/` are drawn in code by `tools/draw_sprites.py`
+(`python tools/draw_sprites.py`). Edit the character grids there and re-run to change them.
+AI-generated art can replace any file; keep the file names.
+
 ## Generation workflow
 
 1. Generate the **reference wizard** first and pick one you like. Every other prompt reuses it
