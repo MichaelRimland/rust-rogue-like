@@ -15,6 +15,7 @@ tools/process_sprites.py so they end up in the same palette.
 """
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -535,6 +536,49 @@ def enemy_bolt() -> Image.Image:
     return c.image()
 
 
+def portal(frame: int) -> Image.Image:
+    """A stone archway with a swirling portal. The swirl is light on purpose: the game tints
+    the whole sprite in the color of the room behind the door."""
+    c = Canvas(SIZE)
+    stone = [rgb("#2b2438"), rgb("#3d3550"), rgb("#5a5266"), rgb("#7d7589")]
+    swirl = [rgb("#7d7589"), rgb("#a8a0ae"), rgb("#d4cdd0"), rgb("#f2ecdf")]
+    centre_x, arch_y, hole_y = 15.5, 12.0, 13.0
+
+    def in_arch(x: int, y: int) -> bool:
+        if y >= arch_y:
+            return 5 <= x <= 26 and y <= 30
+        return math.hypot(x - centre_x, y - arch_y) <= 10.8
+
+    def in_hole(x: int, y: int) -> bool:
+        if y >= hole_y:
+            return 10 <= x <= 21 and y <= 30
+        return math.hypot(x - centre_x, y - hole_y) <= 6.2
+
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if not in_arch(x, y):
+                continue
+            if in_hole(x, y):
+                # Swirl: bands that spiral around the centre of the opening.
+                dx, dy = x - centre_x, y - 21.0
+                angle = math.atan2(dy, dx)
+                radius = math.hypot(dx, dy)
+                value = math.sin(angle * 2.0 + radius * 0.55 - frame * 1.7) * 0.5 + 0.5
+                value -= max(0.0, (radius - 6.0) * 0.08)  # darker towards the rim
+                level = int(max(0.0, min(0.999, value)) * len(swirl))
+                c.put(x, y, swirl[level])
+            else:
+                # Stone blocks: lighter on the upper left, mortar lines between rows.
+                light = 3 if (x + y) % 9 == 0 else 2 if x < 14 else 1
+                if y % 5 == 4 or (x + (y // 5) * 3) % 8 == 7:
+                    light = 0
+                c.put(x, y, stone[light])
+    # A keystone at the top of the arch.
+    for x, y in ((15, 2), (16, 2), (15, 3), (16, 3)):
+        c.put(x, y, rgb("#d4cdd0"))
+    return c.image()
+
+
 def missile() -> Image.Image:
     c = Canvas(SMALL)
     colors = {
@@ -922,6 +966,8 @@ SPRITES = {
     "decor_obsidian": decor_obsidian,
     "decor_lava": decor_lava,
     "decor_charred": decor_charred,
+    "portal_0": lambda: portal(0),
+    "portal_1": lambda: portal(1),
     "missile": missile,
     "enemy_bolt": enemy_bolt,
     "gem_small": lambda: gem(4, 5, [rgb("#2a7a80"), rgb("#62c9c0"), rgb("#f2ecdf"), rgb("#f2ecdf")]),

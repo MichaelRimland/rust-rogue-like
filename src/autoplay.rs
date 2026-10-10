@@ -42,6 +42,7 @@ impl Plugin for AutoplayPlugin {
             app.insert_resource(DebugStart {
                 floor,
                 boss_room: config.boss_room,
+                room: config.start_room,
             });
         }
         app.insert_resource(config)
@@ -70,6 +71,8 @@ struct AutoplayConfig {
     /// Dungeon only: begin on this floor (`--floor N`), in its boss room with `--boss`.
     start_floor: Option<u32>,
     boss_room: bool,
+    /// `--room shop|rest|treasure|elite`: begin in a room of this kind.
+    start_room: Option<RoomKind>,
     /// Instead of playing, show a menu screen (`menu` or `shrine`), save the screenshot
     /// and exit. Handy for checking the UI.
     scene: Option<String>,
@@ -107,10 +110,21 @@ impl AutoplayConfig {
             .position(|arg| arg == "--scene")
             .and_then(|i| args.get(i + 1))
             .cloned();
+        let start_room = args
+            .iter()
+            .position(|arg| arg == "--room")
+            .and_then(|i| args.get(i + 1))
+            .and_then(|name| match name.as_str() {
+                "shop" => Some(RoomKind::Shop),
+                "rest" => Some(RoomKind::Rest),
+                "treasure" => Some(RoomKind::Treasure),
+                "elite" => Some(RoomKind::Elite),
+                _ => None,
+            });
         let boss_room = args.iter().any(|arg| arg == "--boss");
         let start_floor = number("--floor")
             .map(|floor| floor as u32)
-            .or(boss_room.then_some(1));
+            .or((boss_room || start_room.is_some()).then_some(1));
         let capture = args
             .iter()
             .position(|arg| arg == "--capture-dir")
@@ -122,6 +136,7 @@ impl AutoplayConfig {
                 interval: 1.0 / number("--capture-fps").unwrap_or(10.0).max(1.0),
             });
         Some(Self {
+            start_room,
             capture,
             maxed: args.iter().any(|arg| arg == "--maxed"),
             hold_level_up: args.iter().any(|arg| arg == "--hold-levelup"),

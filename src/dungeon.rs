@@ -11,6 +11,7 @@ use bevy::prelude::*;
 
 use crate::{
     AppState, GameSet,
+    animation::WalkAnimation,
     assets::{GameAssets, SPRITE_SCALE},
     audio::{PlaySound, Sfx},
     combat::DamageEnemy,
@@ -77,10 +78,12 @@ pub const ARENA_HALF: Vec2 = Vec2::new(1100.0, 700.0);
 /// Distance the player keeps from the walls.
 const WALL_MARGIN: f32 = 20.0;
 const DOOR_REACH: f32 = 46.0;
+/// Portals are 32 px sprites drawn at this scale.
+const PORTAL_SCALE: f32 = 3.0;
 const PROP_REACH: f32 = 44.0;
 /// Where the player starts a room, and where doors, chests and shop items appear.
 const PLAYER_START: Vec2 = Vec2::new(0.0, -150.0);
-const DOOR_Y: f32 = 260.0;
+const DOOR_Y: f32 = 90.0;
 /// Enemies of a round enter the arena in a ring this far from the player, just off screen.
 const SPAWN_RING: (f32, f32) = (620.0, 780.0);
 const HEAL_PRICE: u32 = 30;
@@ -122,6 +125,8 @@ pub fn endless_mode(mode: Res<GameMode>) -> bool {
 pub struct DebugStart {
     pub floor: u32,
     pub boss_room: bool,
+    /// Start in this kind of room instead of the first arena.
+    pub room: Option<RoomKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,13 +270,16 @@ fn dungeon_flow(
     }
     dungeon.initialized = true;
     dungeon.plan = FloorPlan::generate(&mut rng.0);
-    if let Some(start) = debug_start {
+    if let Some(start) = &debug_start {
         dungeon.floor = start.floor.max(1);
         if start.boss_room {
             dungeon.layer = dungeon.plan.len() - 1;
         }
     }
-    let kind = dungeon.plan.layers[dungeon.layer][0];
+    let kind = debug_start
+        .as_ref()
+        .and_then(|start| start.room)
+        .unwrap_or(dungeon.plan.layers[dungeon.layer][0]);
     let (mut transform, mut health) = player.into_inner();
     enter_room(
         &mut commands,
@@ -363,13 +371,13 @@ fn enter_room(
                 22.0,
             );
             dungeon.state = RoomState::Cleared;
-            spawn_doors(commands, dungeon);
+            spawn_doors(commands, assets, dungeon);
         }
         _ => {}
     }
     if kind == RoomKind::Shop {
         dungeon.state = RoomState::Cleared;
-        spawn_doors(commands, dungeon);
+        spawn_doors(commands, assets, dungeon);
     }
 }
 
@@ -497,7 +505,7 @@ fn door_color(target: DoorTarget) -> Color {
 }
 
 /// Opens the doors to the next rooms (or the stairs down after the boss).
-fn spawn_doors(commands: &mut Commands, dungeon: &Dungeon) {
+fn spawn_doors(commands: &mut Commands, assets: &GameAssets, dungeon: &Dungeon) {
     let targets: Vec<DoorTarget> = match dungeon.plan.layers.get(dungeon.layer + 1) {
         Some(layer) => layer.iter().map(|&kind| DoorTarget::Room(kind)).collect(),
         None => vec![DoorTarget::NextFloor],
@@ -509,21 +517,34 @@ fn spawn_doors(commands: &mut Commands, dungeon: &Dungeon) {
             DoorTarget::Room(kind) => kind.name(),
             DoorTarget::NextFloor => "Descend",
         };
+        let mut sprite = Sprite::from_image(assets.portal[0].clone());
+        sprite.color = door_color(target);
         commands.spawn((
             RoomEntity,
             Door { target },
-            Sprite::from_color(door_color(target), Vec2::new(56.0, 72.0)),
-            Transform::from_xyz(x, DOOR_Y, 0.5),
+            sprite,
+            WalkAnimation::new(assets.portal.clone(), i as u32),
+            Transform::from_xyz(x, DOOR_Y, 0.5).with_scale(Vec3::splat(PORTAL_SCALE)),
             DespawnOnExit(AppState::InGame),
-            children![(
-                Text2d::new(name),
-                TextFont {
-                    font_size: FontSize::Px(16.0),
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
-                Transform::from_xyz(0.0, -52.0, 1.0),
-            )],
+            children![
+                // The label counters the parent's scale so the text keeps its size.
+                (
+                    Text2d::new(name),
+                    TextFont {
+                        font_size: FontSize::Px(16.0),
+                        ..default()
+                    },
+                    TextColor(TEXT_COLOR),
+                    Transform::from_xyz(0.0, -18.0, 1.0)
+                        .with_scale(Vec3::splat(1.0 / PORTAL_SCALE)),
+                ),
+                // A soft glow on the ground in front of the portal.
+                (
+                    Mesh2d(assets.circle.clone()),
+                    MeshMaterial2d(assets.glow.clone()),
+                    Transform::from_xyz(0.0, -12.0, -0.1).with_scale(Vec3::new(14.0, 5.0, 1.0)),
+                ),
+            ],
         ));
     }
 }
@@ -692,7 +713,7 @@ fn round_director(
         next.set(AppState::GameOver);
         return;
     }
-    spawn_doors(&mut commands, &dungeon);
+    spawn_doors(&mut commands, &assets, &dungeon);
 }
 
 /// Sends a killing blow to every enemy. Returns `true` once none are left.
@@ -985,6 +1006,7 @@ fn use_doors(
 fn interact_props(
     mut commands: Commands,
     time: Res<Time>,
+    assets: Res<GameAssets>,
     mut stats: ResMut<Stats>,
     mut dungeon: ResMut<Dungeon>,
     mut run: ResMut<RunStats>,
@@ -1016,7 +1038,7 @@ fn interact_props(
             24.0,
         );
         dungeon.state = RoomState::Cleared;
-        spawn_doors(&mut commands, &dungeon);
+        spawn_doors(&mut commands, &assets, &dungeon);
     }
 
     let dt = time.delta_secs();

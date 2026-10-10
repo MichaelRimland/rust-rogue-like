@@ -36,6 +36,8 @@ pub struct GameAssets {
     pub missile: Handle<Image>,
     /// The end boss.
     pub king: [Handle<Image>; 2],
+    /// Archway with a swirling portal; tinted in the color of the room behind it.
+    pub portal: [Handle<Image>; 2],
     /// Ground tiles per biome, in the order of [`Biome::ALL`].
     ground: [Handle<Image>; 3],
     pub enemy_bolt: Handle<Image>,
@@ -135,6 +137,7 @@ fn create_assets(
 
         missile: sprite("missile"),
         king: frames("king"),
+        portal: frames("portal"),
         ground: [
             sprite("ground"),
             sprite("ground_crypt"),
