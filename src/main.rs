@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{asset::AssetMetaCheck, prelude::*};
 use rust_rogue_like::GamePlugin;
 
 fn main() {
@@ -7,6 +7,11 @@ fn main() {
             DefaultPlugins
                 // Nearest-neighbour sampling keeps pixel art crisp.
                 .set(ImagePlugin::default_nearest())
+                // The assets ship without `.meta` files; skip the failing request per asset.
+                .set(AssetPlugin {
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Rust Rogue-like".into(),
