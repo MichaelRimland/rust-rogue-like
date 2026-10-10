@@ -20,31 +20,19 @@ A wizard in a cursed forest; spells fire automatically, the player only moves an
 upgrades on level-up. Later milestones add procedurally generated dungeon floors
 (arena rooms, shops, treasure, bosses) between the survivor fights.
 
-## Current status (end of first session, Oct 2026)
+## Current status (Oct 2026)
 
-**Milestone 1 (core loop) is written but has NOT been compiled yet.** The first session
-ran in a sandbox without access to crates.io, so the Bevy part was written against the
-Bevy v0.20.0 sources, examples and migration guides, but never built.
+**Milestone 1 (core loop) is done and playable.** The Bevy code builds on 0.20.0 without
+warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (19 tests) and `cargo fmt`
+are clean. The repo lives at github.com/MichaelRimland/rust-rogue-like (private for now) with
+CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 
-- Verified: everything in `src/logic/` (19 unit tests pass, clippy clean, rustfmt clean).
-- Not verified: all Bevy code (`src/*.rs` outside `logic/`, `src/ui/`). Expect a few
-  compile errors from API details on the first `cargo build`. Fix them against the
-  0.20 API, not by downgrading Bevy.
-- No git repository yet. The user creates it and makes the first commit themselves
-  (their name should be in the history). `Cargo.lock` must be committed.
-- Placeholders to replace: `YOUR-GITHUB-NAME` in `README.md`, `YOUR NAME` in `LICENSE`.
-- The README marks Milestone 1 as done; only true once it builds and plays correctly.
-
-### First tasks in VS Code
-
-1. `cargo build` → fix compile errors and warnings.
-2. `cargo run` → playtest. Check: spawning, missile aiming, level-up screen with
-   keys 1/2/3, pause (Esc/P), game over + restart, hurt tint on the player.
-3. `cargo clippy --all-targets -- -D warnings` and `cargo test`.
-4. Tune balancing if needed (numbers listed below).
-5. Help the user with `git init`, first commit, pushing to GitHub, enabling Pages
-   (Settings → Pages → Source: GitHub Actions).
-6. Record a gameplay GIF for the README.
+- The Arcane Missile fires automatically towards the **mouse cursor** (no target selection);
+  volleys fan out symmetrically around the aim direction.
+- The WASM build works in CI. The deploy job fails until GitHub Pages is enabled
+  (Settings → Pages → Source: GitHub Actions); Pages needs a public repo on the free plan.
+- Still open from M1: gameplay GIF for the README (`docs/gameplay.gif`), balancing pass.
+- Next: **M2 performance** (benchmark scene, profiling, pooling, 5 000 enemies at 60 FPS).
 
 ## What Milestone 1 contains
 
@@ -52,7 +40,7 @@ Bevy v0.20.0 sources, examples and migration guides, but never built.
 - Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,
   squash animation on hit, death particles, cap of 1 500 enemies.
-- Weapons: Arcane Missile (start weapon, aims at nearest enemies, volley count, pierce),
+- Weapons: Arcane Missile (start weapon, fires towards the mouse cursor, volley count, pierce),
   Holy Aura (damage ticks in a circle), Orbiting Runes (rotating hexagons).
 - Progression: XP gems with magnet pickup, quadratic XP curve, stacked level-ups,
   3 weighted upgrade choices (new weapons weighted higher), caps per upgrade.
@@ -96,7 +84,7 @@ web/index.html      page for the WASM build
 
 ## Roadmap
 
-- [ ] **M1 core loop** – written, needs first build + playtest (see above)
+- [x] **M1 core loop** – done
 - [ ] **M2 performance** – benchmark scene, profiling, pooling, goal: 5 000 enemies at 60 FPS
 - [ ] **M3 dungeon** – generated floors of rooms (arena, shop, treasure, elite), doors open
       after a wave, boss at the end of a floor

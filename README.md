@@ -1,8 +1,8 @@
 # rust-rogue-like
 
 *(Working title.)* A fantasy survivor-roguelike written in **Rust** with the **[Bevy](https://bevy.org) 0.20** game engine.
-You are a lone wizard in a cursed forest. Your spells cast themselves; your only job is to move,
-survive the ever-growing hordes, and combine upgrades into a build that can outlast the night.
+You are a lone wizard in a cursed forest. Your spells cast themselves; your job is to move,
+aim with the mouse, survive the ever-growing hordes, and combine upgrades into a build that can outlast the night.
 
 **[▶ Play in the browser](https://MichaelRimland.github.io/rust-rogue-like/)** <!-- replace after enabling GitHub Pages -->
 
@@ -11,7 +11,7 @@ survive the ever-growing hordes, and combine upgrades into a build that can outl
 ## Features
 
 - **Survivor-style combat** with hundreds of enemies on screen at once
-- **Three spells** that stack into builds: Arcane Missile (auto-aimed, piercing volleys),
+- **Three spells** that stack into builds: Arcane Missile (fires automatically towards the mouse cursor, piercing volleys),
   Holy Aura (damage field) and Orbiting Runes
 - **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres), tougher monsters
@@ -23,6 +23,7 @@ survive the ever-growing hordes, and combine upgrades into a build that can outl
 | Key | Action |
 | --- | --- |
 | `WASD` / arrow keys | Move |
+| Mouse | Aim the Arcane Missile (it fires automatically) |
 | `1` `2` `3` | Choose an upgrade |
 | `Esc` / `P` | Pause |
 | `Enter` / `Space` | Start / restart |
