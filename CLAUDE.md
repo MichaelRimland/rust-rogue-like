@@ -35,6 +35,8 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   triggers (kept as a comment in each file) and set Settings → Pages → Source: GitHub Actions.
   Until then run `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test`
   locally before committing.
+- **TODO (remind the user):** restore the "Play in browser" link in `README.md` (commented
+  out for now) once the repo is public and Pages is enabled.
 - Still open from M1: gameplay GIF for the README (`docs/gameplay.gif`), balancing pass.
 - Next: **M2 performance** (benchmark scene, profiling, pooling, 5 000 enemies at 60 FPS).
 

@@ -4,7 +4,9 @@
 You are a lone wizard in a cursed forest. Your spells cast themselves; your job is to move,
 aim with the mouse, survive the ever-growing hordes, and combine upgrades into a build that can outlast the night.
 
-**[▶ Play in the browser](https://MichaelRimland.github.io/rust-rogue-like/)** <!-- replace after enabling GitHub Pages -->
+<!-- TODO once the repo is public and GitHub Pages is enabled, restore the play link:
+**[▶ Play in the browser](https://MichaelRimland.github.io/rust-rogue-like/)**
+-->
 
 <!-- Add a GIF here once the game runs: docs/gameplay.gif -->
 
