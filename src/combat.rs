@@ -10,10 +10,10 @@ use crate::{
     AppState, GameSet,
     assets::GameAssets,
     audio::{PlaySound, Sfx},
-    enemy::{Enemy, EnemyGrid, HIT_FLASH_SECS, MAX_ENEMY_RADIUS},
+    enemy::{Enemy, EnemyGrid, HIT_FLASH_SECS, MAX_ENEMY_RADIUS, Vulnerable},
     player::{Health, PLAYER_RADIUS, Player, flash_hurt},
     progression::spawn_gem,
-    run::{GameRng, RunStats},
+    run::{GameRng, RunStats, Stats},
     skills::MovementSkills,
     world::CameraShake,
 };
@@ -69,12 +69,14 @@ fn apply_damage(
     mut run: ResMut<RunStats>,
     mut sounds: MessageWriter<PlaySound>,
     mut messages: MessageReader<DamageEnemy>,
-    mut enemies: Query<(&Transform, &mut Enemy)>,
+    mut enemies: Query<(&Transform, &mut Enemy, Option<&Vulnerable>)>,
     numbers: Query<(), With<DamageNumber>>,
+    stats: Res<Stats>,
+    mut player_health: Single<&mut Health, With<Player>>,
 ) {
     let mut visible_numbers = numbers.iter().count();
     for message in messages.read() {
-        let Ok((transform, mut enemy)) = enemies.get_mut(message.entity) else {
+        let Ok((transform, mut enemy, vulnerable)) = enemies.get_mut(message.entity) else {
             // Already despawned, e.g. killed earlier this frame by another weapon.
             continue;
         };
@@ -82,14 +84,16 @@ fn apply_damage(
             continue;
         }
 
-        enemy.health -= message.amount;
+        // Shocked enemies take extra damage.
+        let amount = message.amount * (1.0 + vulnerable.map_or(0.0, |shock| shock.bonus));
+        enemy.health -= amount;
         enemy.hit_flash = HIT_FLASH_SECS;
         sounds.write(PlaySound(Sfx::Hit));
 
-        if visible_numbers < MAX_DAMAGE_NUMBERS && message.amount >= 1.0 {
+        if visible_numbers < MAX_DAMAGE_NUMBERS && amount >= 1.0 {
             visible_numbers += 1;
             let jitter = rng.0.range_f32(-8.0, 8.0);
-            let color = if message.amount >= BIG_HIT {
+            let color = if amount >= BIG_HIT {
                 Color::srgb(1.0, 0.89, 0.48)
             } else {
                 Color::srgb(0.95, 0.93, 0.87)
@@ -98,13 +102,9 @@ fn apply_damage(
                 DamageNumber {
                     lifetime: NUMBER_SECS,
                 },
-                Text2d::new(format!("{:.0}", message.amount)),
+                Text2d::new(format!("{amount:.0}")),
                 TextFont {
-                    font_size: FontSize::Px(if message.amount >= BIG_HIT {
-                        18.0
-                    } else {
-                        14.0
-                    }),
+                    font_size: FontSize::Px(if amount >= BIG_HIT { 18.0 } else { 14.0 }),
                     ..default()
                 },
                 TextColor(color),
@@ -122,6 +122,11 @@ fn apply_damage(
 
         let position = transform.translation.truncate();
         run.kills += 1;
+        // Soul Drain.
+        let heal = stats.heal_per_kill();
+        if heal > 0.0 {
+            player_health.current = (player_health.current + heal).min(player_health.max);
+        }
         sounds.write(PlaySound(Sfx::Kill));
         run.gold += enemy.kind.gold();
         spawn_gem(&mut commands, &assets, position, enemy.xp);

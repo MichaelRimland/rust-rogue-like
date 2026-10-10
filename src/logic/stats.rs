@@ -26,6 +26,22 @@ pub struct MissileStats {
     pub prism: bool,
     /// Arcane Tempest evolution (Spell Echo at max level and a big volley).
     pub tempest: bool,
+    /// Returning Bolts: bolts fly back to the player and hit again.
+    pub returning_level: u32,
+    /// Surpassing Chance: volleys may fire extra bolts from behind and the sides.
+    pub backfire_level: u32,
+    /// Seeking Bolts: bolts curve towards nearby enemies.
+    pub seeking_level: u32,
+    /// Precision: chance to hit for double damage.
+    pub precision_level: u32,
+    /// Frostbite: hits slow enemies.
+    pub frost_level: u32,
+    /// Concussive Force: hits knock enemies back.
+    pub knockback_level: u32,
+    /// Shock: shocked enemies take extra damage.
+    pub shock_level: u32,
+    /// Magnified Bolts: bigger bolts that are easier to land.
+    pub size_level: u32,
 }
 
 impl MissileStats {
@@ -37,6 +53,20 @@ impl MissileStats {
     pub const MAX_ECHO_LEVEL: u32 = 3;
     pub const MAX_BURST_LEVEL: u32 = 3;
     pub const MAX_BURN_LEVEL: u32 = 3;
+    pub const MAX_RETURNING_LEVEL: u32 = 3;
+    pub const MAX_BACKFIRE_LEVEL: u32 = 3;
+    pub const MAX_SEEKING_LEVEL: u32 = 3;
+    pub const MAX_PRECISION_LEVEL: u32 = 5;
+    pub const MAX_FROST_LEVEL: u32 = 3;
+    pub const MAX_KNOCKBACK_LEVEL: u32 = 3;
+    pub const MAX_SHOCK_LEVEL: u32 = 3;
+    pub const MAX_SIZE_LEVEL: u32 = 3;
+    /// Damage multiplier of a critical hit.
+    pub const CRIT_MULTIPLIER: f32 = 2.0;
+    /// Seconds a slow lasts.
+    pub const SLOW_SECS: f32 = 2.0;
+    /// Seconds an enemy stays shocked.
+    pub const SHOCK_SECS: f32 = 4.0;
     /// Damage of echoed volleys relative to the original volley.
     pub const ECHO_DAMAGE_FACTOR: f32 = 0.75;
     /// Damage of the explosion relative to the bolt that caused it.
@@ -45,6 +75,67 @@ impl MissileStats {
     /// How often a bolt may jump to a new enemy after hitting one.
     pub fn chain_count(&self) -> u32 {
         self.chain_level
+    }
+
+    /// Damage of a returning bolt on its way back, relative to the outward trip; `0.0`
+    /// when bolts do not return.
+    pub fn return_damage_factor(&self) -> f32 {
+        if self.returning_level == 0 {
+            0.0
+        } else {
+            0.6 + 0.2 * (self.returning_level - 1) as f32
+        }
+    }
+
+    /// Chance per volley to fire extra bolts in other directions.
+    pub fn backfire_chance(&self) -> f32 {
+        if self.backfire_level == 0 {
+            0.0
+        } else {
+            (0.35 + 0.2 * (self.backfire_level - 1) as f32).min(1.0)
+        }
+    }
+
+    /// Directions of the extra bolts relative to the aim, in radians: behind first, then
+    /// left, then right, so that at the highest level there is one bolt for each of the
+    /// four directions.
+    pub fn backfire_angles(&self) -> &'static [f32] {
+        use std::f32::consts::{FRAC_PI_2, PI};
+        match self.backfire_level {
+            0 => &[],
+            1 => &[PI],
+            2 => &[PI, FRAC_PI_2],
+            _ => &[PI, FRAC_PI_2, -FRAC_PI_2],
+        }
+    }
+
+    /// How fast a seeking bolt turns towards its target, in radians per second.
+    pub fn seek_turn_rate(&self) -> f32 {
+        2.2 * self.seeking_level as f32
+    }
+
+    pub fn crit_chance(&self) -> f32 {
+        (0.12 * self.precision_level as f32).min(0.6)
+    }
+
+    /// Speed factor of a slowed enemy, `1.0` without Frostbite.
+    pub fn slow_factor(&self) -> f32 {
+        (1.0 - 0.2 * self.frost_level as f32).max(0.4)
+    }
+
+    /// Distance enemies are pushed back by a hit.
+    pub fn knockback_distance(&self) -> f32 {
+        16.0 * self.knockback_level as f32
+    }
+
+    /// Extra damage a shocked enemy takes, as a fraction.
+    pub fn vulnerability(&self) -> f32 {
+        0.15 * self.shock_level as f32
+    }
+
+    /// Scale of the bolts (and their hit radius).
+    pub fn size_factor(&self) -> f32 {
+        1.0 + 0.25 * self.size_level as f32
     }
 
     /// How many extra times each volley is repeated.
@@ -205,6 +296,59 @@ impl RuneStats {
     }
 }
 
+/// Thunderstorm: lightning strikes random enemies around the player.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StormStats {
+    /// 0 means the weapon is not unlocked yet.
+    pub level: u32,
+}
+
+impl StormStats {
+    pub const MAX_LEVEL: u32 = 5;
+    /// Radius of the damage around a strike.
+    pub const RADIUS: f32 = 60.0;
+    /// Strikes only target enemies this close to the player.
+    pub const RANGE: f32 = 650.0;
+
+    pub fn interval(&self) -> f32 {
+        (4.4 - 0.4 * self.level as f32).max(1.5)
+    }
+
+    pub fn strikes(&self) -> u32 {
+        1 + self.level
+    }
+
+    pub fn damage(&self) -> f32 {
+        30.0 + 18.0 * self.level as f32
+    }
+}
+
+/// Frost Nova: a periodic icy blast around the player that damages and slows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NovaStats {
+    /// 0 means the weapon is not unlocked yet.
+    pub level: u32,
+}
+
+impl NovaStats {
+    pub const MAX_LEVEL: u32 = 5;
+    /// Speed factor of enemies hit by the nova.
+    pub const SLOW_FACTOR: f32 = 0.55;
+    pub const SLOW_SECS: f32 = 2.5;
+
+    pub fn interval(&self) -> f32 {
+        (6.0 - 0.5 * self.level as f32).max(2.5)
+    }
+
+    pub fn radius(&self) -> f32 {
+        140.0 + 25.0 * self.level as f32
+    }
+
+    pub fn damage(&self) -> f32 {
+        10.0 + 8.0 * self.level as f32
+    }
+}
+
 /// Everything upgrades can modify.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlayerStats {
@@ -217,6 +361,30 @@ pub struct PlayerStats {
     pub runes: RuneStats,
     pub dash: DashStats,
     pub blink: BlinkStats,
+    pub storm: StormStats,
+    pub nova: NovaStats,
+    /// Soul Drain: health restored per kill, per level.
+    pub soul_drain_level: u32,
+    /// Bloodrage: more damage while badly hurt, per level.
+    pub rage_level: u32,
+}
+
+impl PlayerStats {
+    pub const MAX_PASSIVE_LEVEL: u32 = 3;
+
+    /// Health restored when an enemy dies.
+    pub fn heal_per_kill(&self) -> f32 {
+        0.6 * self.soul_drain_level as f32
+    }
+
+    /// Damage multiplier of Bloodrage: it applies below half health.
+    pub fn rage_multiplier(&self, health_fraction: f32) -> f32 {
+        if health_fraction < 0.5 {
+            1.0 + 0.2 * self.rage_level as f32
+        } else {
+            1.0
+        }
+    }
 }
 
 impl Default for PlayerStats {
@@ -239,6 +407,14 @@ impl Default for PlayerStats {
                 burn_level: 0,
                 prism: false,
                 tempest: false,
+                returning_level: 0,
+                backfire_level: 0,
+                seeking_level: 0,
+                precision_level: 0,
+                frost_level: 0,
+                knockback_level: 0,
+                shock_level: 0,
+                size_level: 0,
             },
             aura: AuraStats {
                 level: 0,
@@ -250,6 +426,10 @@ impl Default for PlayerStats {
             },
             dash: DashStats { level: 0 },
             blink: BlinkStats { level: 0 },
+            storm: StormStats { level: 0 },
+            nova: NovaStats { level: 0 },
+            soul_drain_level: 0,
+            rage_level: 0,
         }
     }
 }
@@ -279,6 +459,18 @@ pub enum Upgrade {
     EvolveSanctum,
     EvolvePrism,
     EvolveTempest,
+    MissileReturning,
+    MissileBackfire,
+    MissileSeeking,
+    MissilePrecision,
+    MissileFrost,
+    MissileKnockback,
+    MissileShock,
+    MissileSize,
+    SoulDrain,
+    Bloodrage,
+    Thunderstorm,
+    FrostNova,
 }
 
 const MIN_MISSILE_COOLDOWN: f32 = 0.25;
@@ -291,7 +483,7 @@ const EVOLVE_TEMPEST_VOLLEY: u32 = 4;
 const MAX_PICKUP_RADIUS: f32 = 250.0;
 
 impl Upgrade {
-    pub const ALL: [Upgrade; 21] = [
+    pub const ALL: [Upgrade; 33] = [
         Upgrade::MissileDamage,
         Upgrade::MissileRate,
         Upgrade::MissileCount,
@@ -313,6 +505,18 @@ impl Upgrade {
         Upgrade::EvolveSanctum,
         Upgrade::EvolvePrism,
         Upgrade::EvolveTempest,
+        Upgrade::MissileReturning,
+        Upgrade::MissileBackfire,
+        Upgrade::MissileSeeking,
+        Upgrade::MissilePrecision,
+        Upgrade::MissileFrost,
+        Upgrade::MissileKnockback,
+        Upgrade::MissileShock,
+        Upgrade::MissileSize,
+        Upgrade::SoulDrain,
+        Upgrade::Bloodrage,
+        Upgrade::Thunderstorm,
+        Upgrade::FrostNova,
     ];
 
     /// Health restored immediately when `MaxHealth` is picked.
@@ -351,6 +555,50 @@ impl Upgrade {
             Upgrade::EvolveSanctum => "EVOLVE: Sanctum".into(),
             Upgrade::EvolvePrism => "EVOLVE: Prism Bolt".into(),
             Upgrade::EvolveTempest => "EVOLVE: Arcane Tempest".into(),
+            Upgrade::MissileReturning if stats.missile.returning_level == 0 => {
+                "NEW: Returning Bolts".into()
+            }
+            Upgrade::MissileReturning => {
+                format!("Returning Bolts Lv {}", stats.missile.returning_level + 1)
+            }
+            Upgrade::MissileBackfire if stats.missile.backfire_level == 0 => {
+                "NEW: Surpassing Chance".into()
+            }
+            Upgrade::MissileBackfire => {
+                format!("Surpassing Chance Lv {}", stats.missile.backfire_level + 1)
+            }
+            Upgrade::MissileSeeking if stats.missile.seeking_level == 0 => {
+                "NEW: Seeking Bolts".into()
+            }
+            Upgrade::MissileSeeking => {
+                format!("Seeking Bolts Lv {}", stats.missile.seeking_level + 1)
+            }
+            Upgrade::MissilePrecision if stats.missile.precision_level == 0 => {
+                "NEW: Precision".into()
+            }
+            Upgrade::MissilePrecision => {
+                format!("Precision Lv {}", stats.missile.precision_level + 1)
+            }
+            Upgrade::MissileFrost if stats.missile.frost_level == 0 => "NEW: Frostbite".into(),
+            Upgrade::MissileFrost => format!("Frostbite Lv {}", stats.missile.frost_level + 1),
+            Upgrade::MissileKnockback if stats.missile.knockback_level == 0 => {
+                "NEW: Concussive Force".into()
+            }
+            Upgrade::MissileKnockback => {
+                format!("Concussive Force Lv {}", stats.missile.knockback_level + 1)
+            }
+            Upgrade::MissileShock if stats.missile.shock_level == 0 => "NEW: Shock".into(),
+            Upgrade::MissileShock => format!("Shock Lv {}", stats.missile.shock_level + 1),
+            Upgrade::MissileSize if stats.missile.size_level == 0 => "NEW: Magnified Bolts".into(),
+            Upgrade::MissileSize => format!("Magnified Bolts Lv {}", stats.missile.size_level + 1),
+            Upgrade::SoulDrain if stats.soul_drain_level == 0 => "NEW: Soul Drain".into(),
+            Upgrade::SoulDrain => format!("Soul Drain Lv {}", stats.soul_drain_level + 1),
+            Upgrade::Bloodrage if stats.rage_level == 0 => "NEW: Bloodrage".into(),
+            Upgrade::Bloodrage => format!("Bloodrage Lv {}", stats.rage_level + 1),
+            Upgrade::Thunderstorm if stats.storm.level == 0 => "NEW: Thunderstorm".into(),
+            Upgrade::Thunderstorm => format!("Thunderstorm Lv {}", stats.storm.level + 1),
+            Upgrade::FrostNova if stats.nova.level == 0 => "NEW: Frost Nova".into(),
+            Upgrade::FrostNova => format!("Frost Nova Lv {}", stats.nova.level + 1),
         }
     }
 
@@ -405,6 +653,57 @@ impl Upgrade {
             }
             Upgrade::EvolvePrism => "Forked bolts hit for 90% damage and jump once more".into(),
             Upgrade::EvolveTempest => "One more echo, and echoes deal full damage".into(),
+            Upgrade::MissileReturning if stats.missile.returning_level == 0 => {
+                "Bolts pierce, then fly back to you and hit again".into()
+            }
+            Upgrade::MissileReturning => "The way back hurts more".into(),
+            Upgrade::MissileBackfire if stats.missile.backfire_level == 0 => {
+                "Volleys may fire an extra bolt from behind".into()
+            }
+            Upgrade::MissileBackfire if stats.missile.backfire_level == 1 => {
+                "More often, and also from the left".into()
+            }
+            Upgrade::MissileBackfire => "More often, and from all four directions".into(),
+            Upgrade::MissileSeeking if stats.missile.seeking_level == 0 => {
+                "Bolts curve towards nearby enemies".into()
+            }
+            Upgrade::MissileSeeking => "Sharper turns".into(),
+            Upgrade::MissilePrecision if stats.missile.precision_level == 0 => {
+                "12% chance to hit for double damage".into()
+            }
+            Upgrade::MissilePrecision => "+12% critical hit chance".into(),
+            Upgrade::MissileFrost if stats.missile.frost_level == 0 => {
+                "Hits slow enemies by 20% for 2 seconds".into()
+            }
+            Upgrade::MissileFrost => "Slows enemies another 20%".into(),
+            Upgrade::MissileKnockback if stats.missile.knockback_level == 0 => {
+                "Hits push enemies back".into()
+            }
+            Upgrade::MissileKnockback => "Pushes enemies back farther".into(),
+            Upgrade::MissileShock if stats.missile.shock_level == 0 => {
+                "Hit enemies take 15% more damage for 4 seconds".into()
+            }
+            Upgrade::MissileShock => "+15% more damage taken".into(),
+            Upgrade::MissileSize if stats.missile.size_level == 0 => {
+                "Bolts are 25% larger, so they are easier to land".into()
+            }
+            Upgrade::MissileSize => "Bolts grow another 25%".into(),
+            Upgrade::SoulDrain if stats.soul_drain_level == 0 => {
+                "Every kill restores 0.6 health".into()
+            }
+            Upgrade::SoulDrain => "+0.6 health per kill".into(),
+            Upgrade::Bloodrage if stats.rage_level == 0 => {
+                "+20% damage while below half health".into()
+            }
+            Upgrade::Bloodrage => "+20% more damage when hurt".into(),
+            Upgrade::Thunderstorm if stats.storm.level == 0 => {
+                "Lightning strikes random nearby enemies".into()
+            }
+            Upgrade::Thunderstorm => "More strikes, more damage, more often".into(),
+            Upgrade::FrostNova if stats.nova.level == 0 => {
+                "An icy blast around you damages and slows".into()
+            }
+            Upgrade::FrostNova => "Bigger, stronger and more frequent".into(),
         }
     }
 
@@ -420,6 +719,28 @@ impl Upgrade {
             Upgrade::MissileEcho => stats.missile.echo_level < MissileStats::MAX_ECHO_LEVEL,
             Upgrade::MissileBurst => stats.missile.burst_level < MissileStats::MAX_BURST_LEVEL,
             Upgrade::MissileBurn => stats.missile.burn_level < MissileStats::MAX_BURN_LEVEL,
+            Upgrade::MissileReturning => {
+                stats.missile.returning_level < MissileStats::MAX_RETURNING_LEVEL
+            }
+            Upgrade::MissileBackfire => {
+                stats.missile.backfire_level < MissileStats::MAX_BACKFIRE_LEVEL
+            }
+            Upgrade::MissileSeeking => {
+                stats.missile.seeking_level < MissileStats::MAX_SEEKING_LEVEL
+            }
+            Upgrade::MissilePrecision => {
+                stats.missile.precision_level < MissileStats::MAX_PRECISION_LEVEL
+            }
+            Upgrade::MissileFrost => stats.missile.frost_level < MissileStats::MAX_FROST_LEVEL,
+            Upgrade::MissileKnockback => {
+                stats.missile.knockback_level < MissileStats::MAX_KNOCKBACK_LEVEL
+            }
+            Upgrade::MissileShock => stats.missile.shock_level < MissileStats::MAX_SHOCK_LEVEL,
+            Upgrade::MissileSize => stats.missile.size_level < MissileStats::MAX_SIZE_LEVEL,
+            Upgrade::SoulDrain => stats.soul_drain_level < PlayerStats::MAX_PASSIVE_LEVEL,
+            Upgrade::Bloodrage => stats.rage_level < PlayerStats::MAX_PASSIVE_LEVEL,
+            Upgrade::Thunderstorm => stats.storm.level < StormStats::MAX_LEVEL,
+            Upgrade::FrostNova => stats.nova.level < NovaStats::MAX_LEVEL,
             Upgrade::Dash => stats.dash.level < DashStats::MAX_LEVEL,
             Upgrade::Blink => stats.blink.level < BlinkStats::MAX_LEVEL,
             Upgrade::EvolveSanctum => {
@@ -497,6 +818,51 @@ impl Upgrade {
             }
             Upgrade::EvolvePrism => stats.missile.prism = true,
             Upgrade::EvolveTempest => stats.missile.tempest = true,
+            Upgrade::MissileReturning => {
+                stats.missile.returning_level =
+                    (stats.missile.returning_level + 1).min(MissileStats::MAX_RETURNING_LEVEL)
+            }
+            Upgrade::MissileBackfire => {
+                stats.missile.backfire_level =
+                    (stats.missile.backfire_level + 1).min(MissileStats::MAX_BACKFIRE_LEVEL)
+            }
+            Upgrade::MissileSeeking => {
+                stats.missile.seeking_level =
+                    (stats.missile.seeking_level + 1).min(MissileStats::MAX_SEEKING_LEVEL)
+            }
+            Upgrade::MissilePrecision => {
+                stats.missile.precision_level =
+                    (stats.missile.precision_level + 1).min(MissileStats::MAX_PRECISION_LEVEL)
+            }
+            Upgrade::MissileFrost => {
+                stats.missile.frost_level =
+                    (stats.missile.frost_level + 1).min(MissileStats::MAX_FROST_LEVEL)
+            }
+            Upgrade::MissileKnockback => {
+                stats.missile.knockback_level =
+                    (stats.missile.knockback_level + 1).min(MissileStats::MAX_KNOCKBACK_LEVEL)
+            }
+            Upgrade::MissileShock => {
+                stats.missile.shock_level =
+                    (stats.missile.shock_level + 1).min(MissileStats::MAX_SHOCK_LEVEL)
+            }
+            Upgrade::MissileSize => {
+                stats.missile.size_level =
+                    (stats.missile.size_level + 1).min(MissileStats::MAX_SIZE_LEVEL)
+            }
+            Upgrade::SoulDrain => {
+                stats.soul_drain_level =
+                    (stats.soul_drain_level + 1).min(PlayerStats::MAX_PASSIVE_LEVEL)
+            }
+            Upgrade::Bloodrage => {
+                stats.rage_level = (stats.rage_level + 1).min(PlayerStats::MAX_PASSIVE_LEVEL)
+            }
+            Upgrade::Thunderstorm => {
+                stats.storm.level = (stats.storm.level + 1).min(StormStats::MAX_LEVEL)
+            }
+            Upgrade::FrostNova => {
+                stats.nova.level = (stats.nova.level + 1).min(NovaStats::MAX_LEVEL)
+            }
             Upgrade::MaxHealth => stats.max_health += 20.0,
             Upgrade::MoveSpeed => stats.move_speed = (stats.move_speed * 1.1).min(MAX_MOVE_SPEED),
             Upgrade::PickupRadius => {
@@ -519,6 +885,8 @@ pub fn roll_upgrades(rng: &mut Rng, stats: &PlayerStats, n: usize) -> Vec<Upgrad
             let weight = match u {
                 Upgrade::HolyAura if stats.aura.level == 0 => 2.0,
                 Upgrade::OrbitingRunes if stats.runes.level == 0 => 2.0,
+                Upgrade::Thunderstorm if stats.storm.level == 0 => 1.5,
+                Upgrade::FrostNova if stats.nova.level == 0 => 1.5,
                 // Evolutions are the reward for a focused build, so they come up often.
                 Upgrade::EvolveSanctum | Upgrade::EvolvePrism | Upgrade::EvolveTempest => 4.0,
                 _ => 1.0,
@@ -726,6 +1094,71 @@ mod tests {
         assert!(stats.missile.fork_damage_factor() > MissileStats::FORK_DAMAGE_FACTOR);
         assert_eq!(stats.missile.fork_chains(), 1);
         assert_eq!(stats.missile.echo_damage_factor(), 1.0);
+    }
+
+    #[test]
+    fn new_support_upgrades_start_locked_and_level_up_to_their_caps() {
+        let mut stats = PlayerStats::default();
+        assert_eq!(stats.missile.return_damage_factor(), 0.0);
+        assert_eq!(stats.missile.backfire_chance(), 0.0);
+        assert!(stats.missile.backfire_angles().is_empty());
+        assert_eq!(stats.missile.seek_turn_rate(), 0.0);
+        assert_eq!(stats.missile.crit_chance(), 0.0);
+        assert_eq!(stats.missile.slow_factor(), 1.0);
+        assert_eq!(stats.missile.knockback_distance(), 0.0);
+        assert_eq!(stats.missile.vulnerability(), 0.0);
+        assert_eq!(stats.missile.size_factor(), 1.0);
+        assert_eq!(stats.heal_per_kill(), 0.0);
+        assert_eq!(stats.rage_multiplier(0.1), 1.0);
+
+        let all = [
+            Upgrade::MissileReturning,
+            Upgrade::MissileBackfire,
+            Upgrade::MissileSeeking,
+            Upgrade::MissilePrecision,
+            Upgrade::MissileFrost,
+            Upgrade::MissileKnockback,
+            Upgrade::MissileShock,
+            Upgrade::MissileSize,
+            Upgrade::SoulDrain,
+            Upgrade::Bloodrage,
+            Upgrade::Thunderstorm,
+            Upgrade::FrostNova,
+        ];
+        for upgrade in all {
+            assert!(upgrade.is_available(&stats), "{upgrade:?}");
+            for _ in 0..20 {
+                upgrade.apply(&mut stats);
+            }
+            assert!(!upgrade.is_available(&stats), "{upgrade:?} should be maxed");
+        }
+
+        assert!(stats.missile.return_damage_factor() > 0.0);
+        assert!(stats.missile.backfire_chance() <= 1.0);
+        assert!(stats.missile.seek_turn_rate() > 0.0);
+        assert!(stats.missile.crit_chance() <= 0.6);
+        assert!(stats.missile.slow_factor() >= 0.4 && stats.missile.slow_factor() < 1.0);
+        assert!(stats.missile.knockback_distance() > 0.0);
+        assert!(stats.missile.vulnerability() > 0.0);
+        assert!(stats.missile.size_factor() > 1.0);
+        assert!(stats.heal_per_kill() > 0.0);
+        assert!(stats.rage_multiplier(0.2) > 1.0);
+        assert_eq!(stats.rage_multiplier(0.9), 1.0);
+        assert!(stats.storm.strikes() > 1);
+        assert!(stats.nova.radius() > 150.0);
+    }
+
+    #[test]
+    fn surpassing_chance_adds_one_direction_per_level_up_to_all_four() {
+        let mut stats = PlayerStats::default();
+        let mut counts = Vec::new();
+        for _ in 0..3 {
+            Upgrade::MissileBackfire.apply(&mut stats);
+            counts.push(stats.missile.backfire_angles().len());
+        }
+        // Behind, then also left, then also right: with the forward bolt that is all four.
+        assert_eq!(counts, vec![1, 2, 3]);
+        assert!(stats.missile.backfire_chance() > 0.35);
     }
 
     #[test]

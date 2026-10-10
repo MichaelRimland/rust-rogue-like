@@ -26,6 +26,7 @@ impl Plugin for EnemyPlugin {
             .init_resource::<SpawnTimer>()
             .add_systems(OnEnter(AppState::InGame), reset_spawner)
             .add_systems(Update, rebuild_grid.in_set(GameSet::Spatial))
+            .add_systems(Update, tick_statuses.in_set(GameSet::Movement))
             .add_systems(
                 Update,
                 (move_enemies, wrap_far_enemies, animate_hit_flash)
@@ -72,6 +73,27 @@ pub struct Enemy {
 /// All enemies bucketed by position. Rebuilt every frame in [`GameSet::Spatial`].
 #[derive(Resource)]
 pub struct EnemyGrid(pub SpatialGrid<Entity>);
+
+/// Slowed by Frostbite or Frost Nova: movement speed is multiplied by `factor`.
+#[derive(Component)]
+pub struct Slowed {
+    pub factor: f32,
+    pub remaining: f32,
+}
+
+/// Pushed away by Concussive Force.
+#[derive(Component)]
+pub struct Knockback {
+    pub velocity: Vec2,
+    pub remaining: f32,
+}
+
+/// Shocked: takes `bonus` (a fraction) more damage.
+#[derive(Component)]
+pub struct Vulnerable {
+    pub bonus: f32,
+    pub remaining: f32,
+}
 
 #[derive(Resource, Default)]
 struct SpawnTimer(f32);
@@ -218,12 +240,19 @@ fn move_enemies(
     grid: Res<EnemyGrid>,
     mode: Res<GameMode>,
     player: Single<&Transform, (With<Player>, Without<Enemy>)>,
-    mut enemies: Query<(Entity, &mut Transform, &mut Sprite, &Enemy)>,
+    mut enemies: Query<(
+        Entity,
+        &mut Transform,
+        &mut Sprite,
+        &Enemy,
+        Option<&Slowed>,
+        Option<&Knockback>,
+    )>,
 ) {
     let dt = time.delta_secs();
     let target = player.translation.truncate();
 
-    for (entity, mut transform, mut sprite, enemy) in &mut enemies {
+    for (entity, mut transform, mut sprite, enemy, slowed, knockback) in &mut enemies {
         let position = transform.translation.truncate();
         let offset = target - position;
         let to_player = offset.normalize_or_zero();
@@ -251,8 +280,12 @@ fn move_enemies(
             },
         );
 
-        let velocity =
-            to_player * enemy.speed * approach + push * enemy.speed * SEPARATION_STRENGTH * 0.25;
+        let slow = slowed.map_or(1.0, |slowed| slowed.factor);
+        let mut velocity = to_player * enemy.speed * approach * slow
+            + push * enemy.speed * SEPARATION_STRENGTH * 0.25;
+        if let Some(knockback) = knockback {
+            velocity += knockback.velocity;
+        }
         let delta = velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;
@@ -268,6 +301,35 @@ fn move_enemies(
         let face_left = to_player.x < 0.0;
         if to_player.x != 0.0 && sprite.flip_x != face_left {
             sprite.flip_x = face_left;
+        }
+    }
+}
+
+/// Counts down slows, knockbacks and shocks and removes them when they run out.
+fn tick_statuses(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut slowed: Query<(Entity, &mut Slowed)>,
+    mut pushed: Query<(Entity, &mut Knockback)>,
+    mut shocked: Query<(Entity, &mut Vulnerable)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut status) in &mut slowed {
+        status.remaining -= dt;
+        if status.remaining <= 0.0 {
+            commands.entity(entity).try_remove::<Slowed>();
+        }
+    }
+    for (entity, mut status) in &mut pushed {
+        status.remaining -= dt;
+        if status.remaining <= 0.0 {
+            commands.entity(entity).try_remove::<Knockback>();
+        }
+    }
+    for (entity, mut status) in &mut shocked {
+        status.remaining -= dt;
+        if status.remaining <= 0.0 {
+            commands.entity(entity).try_remove::<Vulnerable>();
         }
     }
 }

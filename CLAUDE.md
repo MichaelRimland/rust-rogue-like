@@ -72,6 +72,12 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
 - Game feel: floating damage numbers (capped), screen shake (`CameraShake` in `world.rs`),
   archers light up before shooting, tiled forest floor snapped to the tile grid.
+- More skills (inspired by PoE2 supports and other survivors): Returning Bolts (boomerang),
+  Surpassing Chance (extra bolts from behind, left, right - with the forward bolt all four
+  directions), Seeking Bolts, Precision (crits), Frostbite (`Slowed`), Concussive Force
+  (`Knockback`), Shock (`Vulnerable`), Magnified Bolts, Soul Drain, Bloodrage, and the weapons
+  Thunderstorm and Frost Nova. Rules and caps in `logic/stats.rs`, behavior in `weapons.rs`,
+  status components in `enemy.rs`. `--maxed` in autoplay starts with everything at max.
 - Dungeon rounds: the arena is `ARENA_HALF` (2200x1400), the camera follows the player and
   stops at the walls. A combat room is a *round*: enemies stream in from a ring around the
   player until `round_quota` kills, then the rest die and doors open. Boss rooms pick one of

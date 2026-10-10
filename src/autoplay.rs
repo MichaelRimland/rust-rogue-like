@@ -25,8 +25,9 @@ use crate::{
     dungeon::{DebugStart, Door, Dungeon, GameMode},
     enemy::Enemy,
     logic::dungeon::RoomKind,
+    logic::stats::Upgrade,
     player::Player,
-    run::{GameRng, RunStats},
+    run::{GameRng, RunStats, Stats},
     save::SaveDisabled,
 };
 
@@ -62,6 +63,8 @@ struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
     endless: bool,
+    /// Start with every upgrade at its maximum level (`--maxed`), to exercise them all.
+    maxed: bool,
     /// Do not pick upgrades automatically (to test the mouse selection by hand).
     hold_level_up: bool,
     /// Dungeon only: begin on this floor (`--floor N`), in its boss room with `--boss`.
@@ -99,6 +102,7 @@ impl AutoplayConfig {
             .map(|floor| floor as u32)
             .or(boss_room.then_some(1));
         Some(Self {
+            maxed: args.iter().any(|arg| arg == "--maxed"),
             hold_level_up: args.iter().any(|arg| arg == "--hold-levelup"),
             start_floor,
             boss_room,
@@ -216,6 +220,7 @@ fn autoplay_run(
     mut bench: ResMut<Bench>,
     mut rng: ResMut<GameRng>,
     mut mode: ResMut<GameMode>,
+    mut stats_resource: ResMut<Stats>,
     phase: Option<Res<State<GamePhase>>>,
     mut last_phase: Local<Option<GamePhase>>,
     player: Query<&Transform, With<Player>>,
@@ -238,6 +243,13 @@ fn autoplay_run(
         bench.god_mode = true;
         if config.endless {
             *mode = GameMode::Endless;
+        }
+        if config.maxed {
+            for upgrade in Upgrade::ALL {
+                for _ in 0..6 {
+                    upgrade.apply(&mut stats_resource);
+                }
+            }
         }
         spawn_enemy_burst(
             &mut commands,

@@ -17,10 +17,12 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   Holy Aura (damage field) and Orbiting Runes
 - **Weapon evolutions**: max out the right ingredients and a spell fuses into something new
   (Sanctum, Prism Bolt, Arcane Tempest)
-- **Level-up choices**: pick one of three rolled upgrades. Movement skills (Dash, Blink)
-  and spell modifiers (Fork, Chain, Spell Echo, Impact Burst, Searing Touch, extra
-  projectiles, piercing) are not given upfront: you need luck on the roll, and every pick
-  can be levelled by rolling it again
+- **Level-up choices**: pick one of three rolled upgrades out of 33. Movement skills (Dash,
+  Blink), spell modifiers (Fork, Chain, Spell Echo, Impact Burst, Searing Touch, Returning
+  Bolts, Surpassing Chance, Seeking Bolts, Precision, Frostbite, Concussive Force, Shock,
+  Magnified Bolts, extra projectiles, piercing), passives (Soul Drain, Bloodrage) and two
+  more weapons (Thunderstorm, Frost Nova) are not given upfront: you need luck on the roll,
+  and every pick can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, bats, archers and warlocks whose bolts you have to dodge), tougher monsters
 - **Three worlds**: every floor has its own look: the cursed forest, the crypt and the inferno
 - **Two modes**: a **Dungeon** of three floors in a large arena: fight rounds, choose doors

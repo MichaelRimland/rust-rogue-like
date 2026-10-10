@@ -47,6 +47,8 @@ pub struct GameAssets {
     decor: [Vec<(Handle<Image>, f32)>; 3],
 
     pub aura: Handle<ColorMaterial>,
+    /// The expanding ring of Frost Nova.
+    pub ice: Handle<ColorMaterial>,
     /// Colors of the particles an enemy kind bursts into.
     particles: [Handle<ColorMaterial>; 6],
 }
@@ -165,6 +167,7 @@ fn create_assets(
         ],
 
         aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),
+        ice: mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
         particles: [
             mat(Color::srgb(0.30, 0.50, 0.27)),
             mat(Color::srgb(0.83, 0.80, 0.82)),

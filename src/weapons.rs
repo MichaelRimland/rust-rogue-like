@@ -9,10 +9,10 @@ use crate::{
     assets::{GameAssets, SPRITE_SCALE},
     audio::{PlaySound, Sfx},
     combat::DamageEnemy,
-    enemy::{Enemy, EnemyGrid, MAX_ENEMY_RADIUS},
-    logic::stats::{AuraStats, MissileStats, RuneStats},
-    player::Player,
-    run::Stats,
+    enemy::{Enemy, EnemyGrid, Knockback, MAX_ENEMY_RADIUS, Slowed, Vulnerable},
+    logic::stats::{AuraStats, MissileStats, NovaStats, RuneStats, StormStats},
+    player::{Health, Player},
+    run::{GameRng, Stats},
     world::cursor_world_position,
 };
 
@@ -27,6 +27,7 @@ impl Plugin for WeaponsPlugin {
                 (
                     move_projectiles,
                     fade_bursts,
+                    fade_flashes,
                     update_aura_visual,
                     sync_runes,
                     orbit_runes,
@@ -41,6 +42,8 @@ impl Plugin for WeaponsPlugin {
                     aura_damage,
                     rune_damage,
                     burn_enemies,
+                    thunderstorm,
+                    frost_nova,
                 )
                     .in_set(GameSet::Combat),
             );
@@ -65,6 +68,16 @@ const ECHO_DELAY: f32 = 0.2;
 const BURN_DURATION: f32 = 3.0;
 const BURN_TICK: f32 = 0.5;
 const BURST_SECS: f32 = 0.25;
+/// Returning bolts turn around after this long and come back to the player.
+const RETURN_AFTER: f32 = 0.55;
+/// A returning bolt is caught (and disappears) this close to the player.
+const RETURN_CATCH_DISTANCE: f32 = 22.0;
+/// How far a seeking bolt looks for a target.
+const SEEK_RANGE: f32 = 320.0;
+/// Seconds a knocked back enemy is pushed.
+const KNOCKBACK_SECS: f32 = 0.15;
+/// How long a lightning strike stays visible.
+const FLASH_SECS: f32 = 0.18;
 
 #[derive(Resource, Default)]
 struct WeaponTimers {
@@ -74,6 +87,8 @@ struct WeaponTimers {
     aura_tick: f32,
     rune_tick: f32,
     rune_angle: f32,
+    storm_timer: f32,
+    nova_timer: f32,
 }
 
 #[derive(Component)]
@@ -86,8 +101,24 @@ struct Projectile {
     can_fork: bool,
     /// How many times the bolt may still jump to a new enemy (Chain support).
     chains_left: u32,
+    /// Collision radius; Magnified Bolts make it larger.
+    radius: f32,
+    /// Seconds since the bolt was fired.
+    age: f32,
+    /// Returning Bolts: damage factor of the way back (`0.0` for bolts that do not return).
+    returning: f32,
+    /// Whether a returning bolt is already on its way back.
+    returned: bool,
+    /// Seeking Bolts: how fast the bolt turns towards enemies, in radians per second.
+    seek_turn: f32,
     /// Enemies already hit, so a piercing bolt damages each enemy only once.
     hit: Vec<Entity>,
+}
+
+/// A short-lived rectangle, used for lightning strikes.
+#[derive(Component)]
+struct Flash {
+    lifetime: f32,
 }
 
 /// Damage over time applied by Searing Touch.
@@ -113,12 +144,13 @@ fn spawn_projectile(
 ) {
     // The sprite points to the right, so rotating by the velocity angle aims it.
     let rotation = Quat::from_rotation_z(projectile.velocity.to_angle());
+    let scale = SPRITE_SCALE * projectile.radius / MISSILE_RADIUS;
     commands.spawn((
         projectile,
         Sprite::from_image(assets.missile.clone()),
         Transform::from_xyz(position.x, position.y, 4.0)
             .with_rotation(rotation)
-            .with_scale(Vec3::splat(SPRITE_SCALE)),
+            .with_scale(Vec3::splat(scale)),
         DespawnOnExit(AppState::InGame),
     ));
 }
@@ -157,9 +189,10 @@ fn fire_missiles(
     time: Res<Time>,
     assets: Res<GameAssets>,
     stats: Res<Stats>,
+    mut rng: ResMut<GameRng>,
     mut timers: ResMut<WeaponTimers>,
     mut sounds: MessageWriter<PlaySound>,
-    player: Single<(&Transform, &Player)>,
+    player: Single<(&Transform, &Player, &Health)>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
 ) {
@@ -181,7 +214,7 @@ fn fire_missiles(
         return;
     }
 
-    let (transform, player) = player.into_inner();
+    let (transform, player, health) = player.into_inner();
     let origin = transform.translation.truncate();
 
     // Aim at the cursor; keep the last move direction when the cursor is outside the window.
@@ -190,26 +223,66 @@ fn fire_missiles(
     let aim = cursor_world
         .map(|target| (target - origin).normalize_or(player.facing))
         .unwrap_or(player.facing);
+    // Bloodrage: hurt wizards hit harder.
+    let rage = stats.rage_multiplier(health.fraction());
 
     if main_ready {
         timers.missile_cooldown = stats.missile.cooldown;
         sounds.write(PlaySound(Sfx::Shoot));
-        spawn_volley(&mut commands, &assets, &stats, origin, aim, 1.0);
+        spawn_volley(&mut commands, &assets, &stats, &mut rng, origin, aim, rage);
         for echo in 1..=stats.missile.echo_count() {
             timers.pending_echoes.push(echo as f32 * ECHO_DELAY);
         }
     }
     for _ in 0..due_echoes {
-        let factor = stats.missile.echo_damage_factor();
-        spawn_volley(&mut commands, &assets, &stats, origin, aim, factor);
+        let factor = stats.missile.echo_damage_factor() * rage;
+        spawn_volley(
+            &mut commands,
+            &assets,
+            &stats,
+            &mut rng,
+            origin,
+            aim,
+            factor,
+        );
     }
 }
 
-/// Spawns one volley, spread symmetrically around `aim`.
+/// One bolt of the current stats, flying in `direction`.
+fn new_projectile(stats: &Stats, direction: Vec2, damage_factor: f32) -> Projectile {
+    let returning = stats.missile.return_damage_factor();
+    Projectile {
+        velocity: direction * stats.missile.speed,
+        damage: stats.missile.damage * damage_factor,
+        // Returning bolts pass through everything on the way out and back.
+        pierce_left: if returning > 0.0 {
+            99
+        } else {
+            stats.missile.pierce
+        },
+        lifetime: if returning > 0.0 {
+            MISSILE_LIFETIME + RETURN_AFTER + 1.0
+        } else {
+            MISSILE_LIFETIME
+        },
+        can_fork: stats.missile.fork_count() > 0,
+        chains_left: stats.missile.chain_count(),
+        radius: MISSILE_RADIUS * stats.missile.size_factor(),
+        age: 0.0,
+        returning,
+        returned: false,
+        seek_turn: stats.missile.seek_turn_rate(),
+        hit: Vec::new(),
+    }
+}
+
+/// Spawns one volley, spread symmetrically around `aim`. With Surpassing Chance there
+/// may be extra bolts behind and beside the wizard.
 fn spawn_volley(
     commands: &mut Commands,
     assets: &GameAssets,
     stats: &Stats,
+    rng: &mut GameRng,
     origin: Vec2,
     aim: Vec2,
     damage_factor: f32,
@@ -218,39 +291,82 @@ fn spawn_volley(
     let middle = (count as f32 - 1.0) / 2.0;
     for i in 0..count {
         let direction = Vec2::from_angle((i as f32 - middle) * MISSILE_SPREAD).rotate(aim);
-        spawn_projectile(
-            commands,
-            assets,
-            origin,
-            Projectile {
-                velocity: direction * stats.missile.speed,
-                damage: stats.missile.damage * damage_factor,
-                pierce_left: stats.missile.pierce,
-                lifetime: MISSILE_LIFETIME,
-                can_fork: stats.missile.fork_count() > 0,
-                chains_left: stats.missile.chain_count(),
-                hit: Vec::new(),
-            },
-        );
+        let projectile = new_projectile(stats, direction, damage_factor);
+        spawn_projectile(commands, assets, origin, projectile);
+    }
+
+    if rng.0.chance(stats.missile.backfire_chance()) {
+        for &angle in stats.missile.backfire_angles() {
+            let direction = Vec2::from_angle(angle).rotate(aim);
+            let projectile = new_projectile(stats, direction, damage_factor);
+            spawn_projectile(commands, assets, origin, projectile);
+        }
     }
 }
 
 fn move_projectiles(
     mut commands: Commands,
     time: Res<Time>,
+    grid: Res<EnemyGrid>,
+    player: Single<&Transform, (With<Player>, Without<Projectile>)>,
     mut projectiles: Query<(Entity, &mut Transform, &mut Projectile)>,
 ) {
     let dt = time.delta_secs();
+    let home = player.translation.truncate();
     for (entity, mut transform, mut projectile) in &mut projectiles {
+        projectile.age += dt;
         projectile.lifetime -= dt;
         if projectile.lifetime <= 0.0 {
             commands.entity(entity).try_despawn();
             continue;
         }
+        let position = transform.translation.truncate();
+
+        // Returning Bolts: after a short flight the bolt turns around and comes home,
+        // hitting everything again on the way back.
+        if projectile.returning > 0.0 {
+            if !projectile.returned && projectile.age >= RETURN_AFTER {
+                projectile.returned = true;
+                projectile.hit.clear();
+                projectile.damage *= projectile.returning;
+            }
+            if projectile.returned {
+                let to_home = home - position;
+                if to_home.length() <= RETURN_CATCH_DISTANCE {
+                    commands.entity(entity).try_despawn();
+                    continue;
+                }
+                let speed = projectile.velocity.length().max(300.0);
+                projectile.velocity = to_home.normalize_or_zero() * speed;
+            }
+        }
+
+        // Seeking Bolts: steer towards the nearest enemy that has not been hit yet.
+        if projectile.seek_turn > 0.0 && !projectile.returned {
+            let mut best: Option<(f32, Vec2)> = None;
+            grid.0
+                .for_each_in_radius(position.x, position.y, SEEK_RANGE, |other, x, y, d2| {
+                    if projectile.hit.contains(&other) {
+                        return;
+                    }
+                    if best.is_none_or(|(best_d2, _)| d2 < best_d2) {
+                        best = Some((d2, Vec2::new(x, y)));
+                    }
+                });
+            if let Some((_, target)) = best {
+                let speed = projectile.velocity.length();
+                let current = projectile.velocity.normalize_or_zero();
+                let wanted = (target - position).normalize_or_zero();
+                let max_turn = projectile.seek_turn * dt;
+                let angle = current.angle_to(wanted).clamp(-max_turn, max_turn);
+                projectile.velocity = Vec2::from_angle(angle).rotate(current) * speed;
+            }
+        }
+
         let delta = projectile.velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;
-        // Chaining changes a bolt's direction mid-flight.
+        // Chaining, seeking and returning change a bolt's direction mid-flight.
         transform.rotation = Quat::from_rotation_z(projectile.velocity.to_angle());
     }
 }
@@ -260,6 +376,7 @@ fn projectile_hits(
     assets: Res<GameAssets>,
     stats: Res<Stats>,
     grid: Res<EnemyGrid>,
+    mut rng: ResMut<GameRng>,
     enemies: Query<&Enemy>,
     mut projectiles: Query<(Entity, &Transform, &mut Projectile)>,
     mut damage: MessageWriter<DamageEnemy>,
@@ -271,7 +388,7 @@ fn projectile_hits(
         grid.0.for_each_in_radius(
             position.x,
             position.y,
-            MISSILE_RADIUS + MAX_ENEMY_RADIUS,
+            projectile.radius + MAX_ENEMY_RADIUS,
             |enemy, _, _, d2| candidates.push((enemy, d2)),
         );
         candidates.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -280,13 +397,21 @@ fn projectile_hits(
             let Ok(enemy) = enemies.get(enemy_entity) else {
                 continue;
             };
-            let reach = MISSILE_RADIUS + enemy.radius;
+            let reach = projectile.radius + enemy.radius;
             if d2 > reach * reach || projectile.hit.contains(&enemy_entity) {
                 continue;
             }
+            // Precision: some hits are critical.
+            let crit = rng.0.chance(stats.missile.crit_chance());
+            let amount = projectile.damage
+                * if crit {
+                    MissileStats::CRIT_MULTIPLIER
+                } else {
+                    1.0
+                };
             damage.write(DamageEnemy {
                 entity: enemy_entity,
-                amount: projectile.damage,
+                amount,
             });
             projectile.hit.push(enemy_entity);
 
@@ -296,6 +421,30 @@ fn projectile_hits(
                     dps: stats.missile.burn_dps(),
                     remaining: BURN_DURATION,
                     tick: BURN_TICK,
+                });
+            }
+
+            // Frostbite, Concussive Force and Shock: status effects on the enemy.
+            let slow = stats.missile.slow_factor();
+            if slow < 1.0 {
+                commands.entity(enemy_entity).try_insert(Slowed {
+                    factor: slow,
+                    remaining: MissileStats::SLOW_SECS,
+                });
+            }
+            let push = stats.missile.knockback_distance();
+            if push > 0.0 {
+                let direction = projectile.velocity.normalize_or_zero();
+                commands.entity(enemy_entity).try_insert(Knockback {
+                    velocity: direction * push / KNOCKBACK_SECS,
+                    remaining: KNOCKBACK_SECS,
+                });
+            }
+            let vulnerability = stats.missile.vulnerability();
+            if vulnerability > 0.0 {
+                commands.entity(enemy_entity).try_insert(Vulnerable {
+                    bonus: vulnerability,
+                    remaining: MissileStats::SHOCK_SECS,
                 });
             }
 
@@ -441,11 +590,165 @@ fn fork_projectile(
                 lifetime: FORK_LIFETIME,
                 can_fork: false,
                 chains_left: stats.missile.fork_chains(),
+                radius: parent.radius,
+                age: 0.0,
+                returning: 0.0,
+                returned: false,
+                seek_turn: parent.seek_turn,
                 // The enemy that caused the fork must not be hit again.
                 hit: parent.hit.clone(),
             },
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Thunderstorm and Frost Nova
+// ---------------------------------------------------------------------------
+
+/// Lightning strikes a few random enemies around the player.
+fn thunderstorm(
+    mut commands: Commands,
+    time: Res<Time>,
+    stats: Res<Stats>,
+    grid: Res<EnemyGrid>,
+    enemies: Query<&Enemy>,
+    mut rng: ResMut<GameRng>,
+    mut timers: ResMut<WeaponTimers>,
+    mut sounds: MessageWriter<PlaySound>,
+    mut damage: MessageWriter<DamageEnemy>,
+    player: Single<&Transform, With<Player>>,
+) {
+    if stats.storm.level == 0 {
+        return;
+    }
+    timers.storm_timer -= time.delta_secs();
+    if timers.storm_timer > 0.0 {
+        return;
+    }
+    let center = player.translation.truncate();
+    let mut targets: Vec<Vec2> = Vec::new();
+    grid.0
+        .for_each_in_radius(center.x, center.y, StormStats::RANGE, |_, x, y, _| {
+            targets.push(Vec2::new(x, y));
+        });
+    if targets.is_empty() {
+        // Wait for enemies instead of wasting the strike.
+        timers.storm_timer = 0.3;
+        return;
+    }
+    timers.storm_timer = stats.storm.interval();
+    sounds.write(PlaySound(Sfx::Blink));
+
+    let strikes = (stats.storm.strikes() as usize).min(targets.len());
+    for _ in 0..strikes {
+        let target = targets.swap_remove(rng.0.below(targets.len()));
+        grid.0.for_each_in_radius(
+            target.x,
+            target.y,
+            StormStats::RADIUS + MAX_ENEMY_RADIUS,
+            |entity, _, _, d2| {
+                if let Ok(enemy) = enemies.get(entity) {
+                    let reach = StormStats::RADIUS + enemy.radius;
+                    if d2 <= reach * reach {
+                        damage.write(DamageEnemy {
+                            entity,
+                            amount: stats.storm.damage(),
+                        });
+                    }
+                }
+            },
+        );
+        // A bolt from the sky and a flash where it lands.
+        for (size, offset, color) in [
+            (
+                Vec2::new(8.0, 460.0),
+                Vec2::new(0.0, 230.0),
+                Color::srgba(1.0, 0.95, 0.6, 0.95),
+            ),
+            (
+                Vec2::splat(StormStats::RADIUS * 1.6),
+                Vec2::ZERO,
+                Color::srgba(1.0, 0.89, 0.48, 0.5),
+            ),
+        ] {
+            commands.spawn((
+                Flash {
+                    lifetime: FLASH_SECS,
+                },
+                Sprite::from_color(color, size),
+                Transform::from_xyz(target.x + offset.x, target.y + offset.y, 5.0),
+                DespawnOnExit(AppState::InGame),
+            ));
+        }
+    }
+}
+
+fn fade_flashes(mut commands: Commands, time: Res<Time>, mut flashes: Query<(Entity, &mut Flash)>) {
+    let dt = time.delta_secs();
+    for (entity, mut flash) in &mut flashes {
+        flash.lifetime -= dt;
+        if flash.lifetime <= 0.0 {
+            commands.entity(entity).try_despawn();
+        }
+    }
+}
+
+/// An icy blast around the player: damage and a slow for everything inside.
+fn frost_nova(
+    mut commands: Commands,
+    time: Res<Time>,
+    stats: Res<Stats>,
+    assets: Res<GameAssets>,
+    grid: Res<EnemyGrid>,
+    enemies: Query<&Enemy>,
+    mut timers: ResMut<WeaponTimers>,
+    mut sounds: MessageWriter<PlaySound>,
+    mut damage: MessageWriter<DamageEnemy>,
+    player: Single<&Transform, With<Player>>,
+) {
+    if stats.nova.level == 0 {
+        return;
+    }
+    timers.nova_timer -= time.delta_secs();
+    if timers.nova_timer > 0.0 {
+        return;
+    }
+    timers.nova_timer = stats.nova.interval();
+    sounds.write(PlaySound(Sfx::Dash));
+
+    let center = player.translation.truncate();
+    let radius = stats.nova.radius();
+    grid.0.for_each_in_radius(
+        center.x,
+        center.y,
+        radius + MAX_ENEMY_RADIUS,
+        |entity, _, _, d2| {
+            if let Ok(enemy) = enemies.get(entity) {
+                let reach = radius + enemy.radius;
+                if d2 <= reach * reach {
+                    damage.write(DamageEnemy {
+                        entity,
+                        amount: stats.nova.damage(),
+                    });
+                    commands.entity(entity).try_insert(Slowed {
+                        factor: NovaStats::SLOW_FACTOR,
+                        remaining: NovaStats::SLOW_SECS,
+                    });
+                }
+            }
+        },
+    );
+    commands.spawn((
+        BurstRing {
+            lifetime: BURST_SECS,
+            radius,
+        },
+        Mesh2d(assets.circle.clone()),
+        MeshMaterial2d(assets.ice.clone()),
+        Transform::from_xyz(center.x, center.y, 3.2).with_scale(Vec3::splat(radius * 0.4)),
+        DespawnOnExit(AppState::InGame),
+    ));
 }
 
 // ---------------------------------------------------------------------------
