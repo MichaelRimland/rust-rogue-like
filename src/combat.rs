@@ -13,6 +13,7 @@ use crate::{
     player::{Health, PLAYER_RADIUS, Player, flash_hurt},
     progression::spawn_gem,
     run::{GameRng, RunStats},
+    skills::MovementSkills,
 };
 
 pub struct CombatPlugin;
@@ -96,8 +97,12 @@ fn contact_damage(
     time: Res<Time>,
     grid: Res<EnemyGrid>,
     enemies: Query<&Enemy>,
+    skills: Res<MovementSkills>,
     player: Single<(&Transform, &mut Health, &mut Player)>,
 ) {
+    if skills.is_invulnerable() {
+        return;
+    }
     let (transform, mut health, mut player) = player.into_inner();
     let position = transform.translation.truncate();
 

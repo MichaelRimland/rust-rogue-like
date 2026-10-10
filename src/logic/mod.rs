@@ -8,5 +8,6 @@
 pub mod enemies;
 pub mod progression;
 pub mod rng;
+pub mod skills;
 pub mod spatial;
 pub mod stats;

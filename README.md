@@ -24,6 +24,8 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 | --- | --- |
 | `WASD` / arrow keys | Move |
 | Mouse | Aim the Arcane Missile (it fires automatically) |
+| `Space` | Dash: short burst in the movement direction, invulnerable while dashing |
+| Right mouse button | Blink: teleport towards the cursor (limited range, longer cooldown) |
 | `1` `2` `3` | Choose an upgrade |
 | `Esc` / `P` | Pause |
 | `Enter` / `Space` | Start / restart |
@@ -78,6 +80,7 @@ src/
 ├── assets.rs         shared meshes and materials
 ├── world.rs          camera follow, endlessly wrapping forest decoration
 ├── player.rs         movement, health, regeneration, death
+├── skills.rs         movement skills: dash and blink
 ├── enemy.rs          spawning, steering with separation, spatial grid
 ├── weapons.rs        Arcane Missile, Holy Aura, Orbiting Runes
 ├── combat.rs         damage messages, kills, loot, particles, contact damage

@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::{AppState, GameSet, assets::GameAssets, run::Stats};
+use crate::{AppState, GameSet, assets::GameAssets, run::Stats, skills::MovementSkills};
 
 pub struct PlayerPlugin;
 
@@ -85,14 +85,8 @@ fn spawn_player(
     ));
 }
 
-pub(crate) fn move_player(
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
-    stats: Res<Stats>,
-    player: Single<(&mut Transform, &mut Player)>,
-) {
-    let (mut transform, mut player) = player.into_inner();
-
+/// Normalized WASD / arrow key direction, `None` when no movement key is held.
+pub(crate) fn input_direction(keys: &ButtonInput<KeyCode>) -> Option<Vec2> {
     let mut direction = Vec2::ZERO;
     if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
         direction.y += 1.0;
@@ -107,12 +101,30 @@ pub(crate) fn move_player(
         direction.x += 1.0;
     }
 
-    if let Some(direction) = direction.try_normalize() {
-        player.facing = direction;
-        let delta = direction * stats.move_speed * time.delta_secs();
-        transform.translation.x += delta.x;
-        transform.translation.y += delta.y;
-    }
+    direction.try_normalize()
+}
+
+pub(crate) fn move_player(
+    time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    stats: Res<Stats>,
+    skills: Res<MovementSkills>,
+    player: Single<(&mut Transform, &mut Player)>,
+) {
+    let (mut transform, mut player) = player.into_inner();
+
+    // A dash replaces the normal movement until it ends.
+    let (velocity, facing) = match skills.dash_velocity() {
+        Some(velocity) => (velocity, velocity.normalize_or_zero()),
+        None => match input_direction(&keys) {
+            Some(direction) => (direction * stats.move_speed, direction),
+            None => return,
+        },
+    };
+    player.facing = facing;
+    let delta = velocity * time.delta_secs();
+    transform.translation.x += delta.x;
+    transform.translation.y += delta.y;
 }
 
 fn regenerate(time: Res<Time>, stats: Res<Stats>, mut health: Single<&mut Health, With<Player>>) {

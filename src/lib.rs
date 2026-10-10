@@ -14,6 +14,7 @@ mod enemy;
 mod player;
 mod progression;
 mod run;
+mod skills;
 mod states;
 mod ui;
 mod weapons;
@@ -69,6 +70,7 @@ impl Plugin for GamePlugin {
                 weapons::WeaponsPlugin,
                 combat::CombatPlugin,
                 progression::ProgressionPlugin,
+                skills::SkillsPlugin,
                 ui::UiPlugin,
                 bench::BenchPlugin,
             ));

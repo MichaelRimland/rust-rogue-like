@@ -34,6 +34,16 @@ const CAMERA_FOLLOW_SPEED: f32 = 8.0;
 #[derive(Component)]
 struct Decor;
 
+/// The mouse cursor in world coordinates, `None` while it is outside the window.
+pub(crate) fn cursor_world_position(
+    window: &Window,
+    camera: &Camera,
+    camera_transform: &GlobalTransform,
+) -> Option<Vec2> {
+    let cursor = window.cursor_position()?;
+    camera.viewport_to_world_2d(camera_transform, cursor).ok()
+}
+
 fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }

@@ -2,11 +2,13 @@
 
 use bevy::prelude::*;
 
-use super::{ACCENT_COLOR, PANEL_COLOR, TEXT_COLOR, format_time, label};
+use super::{ACCENT_COLOR, MUTED_TEXT_COLOR, PANEL_COLOR, TEXT_COLOR, format_time, label};
 use crate::{
     AppState,
+    logic::skills::Cooldown,
     player::{Health, Player},
     run::{RunStats, Xp},
+    skills::MovementSkills,
 };
 
 pub struct HudPlugin;
@@ -14,7 +16,10 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::InGame), spawn_hud)
-            .add_systems(Update, update_hud.run_if(in_state(AppState::InGame)));
+            .add_systems(
+                Update,
+                (update_hud, update_skill_text).run_if(in_state(AppState::InGame)),
+            );
     }
 }
 
@@ -29,6 +34,9 @@ struct HealthText;
 
 #[derive(Component)]
 struct InfoText;
+
+#[derive(Component)]
+struct SkillText;
 
 fn spawn_hud(mut commands: Commands) {
     // Experience bar across the top edge.
@@ -84,6 +92,7 @@ fn spawn_hud(mut commands: Commands) {
                     BackgroundColor(Color::srgb(0.85, 0.20, 0.25)),
                 )],
             ),
+            (SkillText, label("", 14.0, MUTED_TEXT_COLOR)),
         ],
     ));
 
@@ -99,6 +108,22 @@ fn spawn_hud(mut commands: Commands) {
         DespawnOnExit(AppState::InGame),
         children![(InfoText, label("", 22.0, ACCENT_COLOR))],
     ));
+}
+
+/// Cooldown readout, e.g. `Dash [Space] ready   Blink [RMB] 2.4s`.
+fn update_skill_text(skills: Res<MovementSkills>, mut text: Single<&mut Text, With<SkillText>>) {
+    let readout = |name: &str, key: &str, cooldown: &Cooldown| {
+        if cooldown.is_ready() {
+            format!("{name} [{key}] ready")
+        } else {
+            format!("{name} [{key}] {:.1}s", cooldown.remaining())
+        }
+    };
+    text.0 = format!(
+        "{}\n{}",
+        readout("Dash", "Space", &skills.dash),
+        readout("Blink", "RMB", &skills.blink)
+    );
 }
 
 fn update_hud(

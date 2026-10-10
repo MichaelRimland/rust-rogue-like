@@ -37,6 +37,9 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 ## What Milestone 1 contains
 
 - Player: WASD/arrows, health, regeneration, red hurt tint, wizard hat child mesh.
+- Movement skills (`skills.rs`, rules in `logic/skills.rs`): Dash on `Space` (burst +
+  i-frames), Blink on right mouse button (teleport towards cursor, range-limited).
+  Tuning constants at the top of `skills.rs`.
 - Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,
   squash animation on hit, death particles, cap of 1 500 enemies.
@@ -60,6 +63,7 @@ src/run.rs          GameRng, Stats (PlayerStats), Xp, RunStats; start_run; pause
 src/assets.rs       GameAssets: shared meshes + materials
 src/world.rs        camera spawn/follow, wrapping decor
 src/player.rs       Player, Health, movement, regen, hurt tint, death check
+src/skills.rs       MovementSkills (dash, blink), afterimages, i-frames
 src/enemy.rs        Enemy, EnemyGrid (spatial hash), spawning, steering, wrapping, hit squash
 src/weapons.rs      missiles, aura, runes (fire + hit detection)
 src/combat.rs       DamageEnemy message, apply_damage (kills, gems, particles), contact damage

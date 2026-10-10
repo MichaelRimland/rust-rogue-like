@@ -12,6 +12,7 @@ use crate::{
     logic::stats::{AuraStats, RuneStats},
     player::Player,
     run::Stats,
+    world::cursor_world_position,
 };
 
 pub struct WeaponsPlugin;
@@ -116,9 +117,7 @@ fn fire_missiles(
 
     // Aim at the cursor; keep the last move direction when the cursor is outside the window.
     let (camera, camera_transform) = *camera;
-    let cursor_world = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok());
+    let cursor_world = cursor_world_position(&window, camera, camera_transform);
     let base = cursor_world
         .map(|target| (target - origin).normalize_or(player.facing))
         .unwrap_or(player.facing);
