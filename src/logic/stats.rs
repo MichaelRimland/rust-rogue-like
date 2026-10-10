@@ -14,12 +14,53 @@ pub struct MissileStats {
     pub pierce: u32,
     /// Fork support: 0 means the bolts do not fork.
     pub fork_level: u32,
+    /// Chain support: how often a bolt jumps to a new enemy after a hit.
+    pub chain_level: u32,
+    /// Spell Echo support: how often each volley is repeated.
+    pub echo_level: u32,
+    /// Impact Burst support: 0 means hits do not explode.
+    pub burst_level: u32,
+    /// Searing Touch support: 0 means hits do not set enemies on fire.
+    pub burn_level: u32,
 }
 
 impl MissileStats {
     pub const MAX_FORK_LEVEL: u32 = 3;
     /// Damage of a forked bolt relative to the bolt it split from.
     pub const FORK_DAMAGE_FACTOR: f32 = 0.6;
+
+    pub const MAX_CHAIN_LEVEL: u32 = 3;
+    pub const MAX_ECHO_LEVEL: u32 = 3;
+    pub const MAX_BURST_LEVEL: u32 = 3;
+    pub const MAX_BURN_LEVEL: u32 = 3;
+    /// Damage of echoed volleys relative to the original volley.
+    pub const ECHO_DAMAGE_FACTOR: f32 = 0.75;
+    /// Damage of the explosion relative to the bolt that caused it.
+    pub const BURST_DAMAGE_FACTOR: f32 = 0.5;
+
+    /// How often a bolt may jump to a new enemy after hitting one.
+    pub fn chain_count(&self) -> u32 {
+        self.chain_level
+    }
+
+    /// How many extra times each volley is repeated.
+    pub fn echo_count(&self) -> u32 {
+        self.echo_level
+    }
+
+    /// Explosion radius on hit, `0.0` without Impact Burst.
+    pub fn burst_radius(&self) -> f32 {
+        if self.burst_level == 0 {
+            0.0
+        } else {
+            30.0 + 20.0 * self.burst_level as f32
+        }
+    }
+
+    /// Burn damage per second, `0.0` without Searing Touch.
+    pub fn burn_dps(&self) -> f32 {
+        self.damage * 0.25 * self.burn_level as f32
+    }
 
     /// Number of bolts a missile splits into on its first hit, `0` without Fork.
     pub fn fork_count(&self) -> u32 {
@@ -154,6 +195,10 @@ impl Default for PlayerStats {
                 count: 1,
                 pierce: 0,
                 fork_level: 0,
+                chain_level: 0,
+                echo_level: 0,
+                burst_level: 0,
+                burn_level: 0,
             },
             aura: AuraStats { level: 0 },
             runes: RuneStats { level: 0 },
@@ -171,6 +216,11 @@ pub enum Upgrade {
     MissileCount,
     MissilePierce,
     MissileFork,
+    MissileChain,
+    MissileSpeed,
+    MissileEcho,
+    MissileBurst,
+    MissileBurn,
     HolyAura,
     OrbitingRunes,
     MaxHealth,
@@ -185,15 +235,21 @@ const MIN_MISSILE_COOLDOWN: f32 = 0.25;
 const MAX_MISSILE_COUNT: u32 = 6;
 const MAX_MISSILE_PIERCE: u32 = 4;
 const MAX_MOVE_SPEED: f32 = 260.0;
+const MAX_MISSILE_SPEED: f32 = 900.0;
 const MAX_PICKUP_RADIUS: f32 = 250.0;
 
 impl Upgrade {
-    pub const ALL: [Upgrade; 13] = [
+    pub const ALL: [Upgrade; 18] = [
         Upgrade::MissileDamage,
         Upgrade::MissileRate,
         Upgrade::MissileCount,
         Upgrade::MissilePierce,
         Upgrade::MissileFork,
+        Upgrade::MissileChain,
+        Upgrade::MissileSpeed,
+        Upgrade::MissileEcho,
+        Upgrade::MissileBurst,
+        Upgrade::MissileBurn,
         Upgrade::HolyAura,
         Upgrade::OrbitingRunes,
         Upgrade::MaxHealth,
@@ -216,6 +272,15 @@ impl Upgrade {
             Upgrade::MissilePierce => "Arcane Missile: Piercing".into(),
             Upgrade::MissileFork if stats.missile.fork_level == 0 => "NEW: Fork".into(),
             Upgrade::MissileFork => format!("Fork Lv {}", stats.missile.fork_level + 1),
+            Upgrade::MissileChain if stats.missile.chain_level == 0 => "NEW: Chain".into(),
+            Upgrade::MissileChain => format!("Chain Lv {}", stats.missile.chain_level + 1),
+            Upgrade::MissileSpeed => "Arcane Missile: Swiftness".into(),
+            Upgrade::MissileEcho if stats.missile.echo_level == 0 => "NEW: Spell Echo".into(),
+            Upgrade::MissileEcho => format!("Spell Echo Lv {}", stats.missile.echo_level + 1),
+            Upgrade::MissileBurst if stats.missile.burst_level == 0 => "NEW: Impact Burst".into(),
+            Upgrade::MissileBurst => format!("Impact Burst Lv {}", stats.missile.burst_level + 1),
+            Upgrade::MissileBurn if stats.missile.burn_level == 0 => "NEW: Searing Touch".into(),
+            Upgrade::MissileBurn => format!("Searing Touch Lv {}", stats.missile.burn_level + 1),
             Upgrade::HolyAura if stats.aura.level == 0 => "NEW: Holy Aura".into(),
             Upgrade::HolyAura => format!("Holy Aura Lv {}", stats.aura.level + 1),
             Upgrade::OrbitingRunes if stats.runes.level == 0 => "NEW: Orbiting Runes".into(),
@@ -242,6 +307,23 @@ impl Upgrade {
                 "Missiles split in two after their first hit".into()
             }
             Upgrade::MissileFork => "Missiles split into one more bolt".into(),
+            Upgrade::MissileChain if stats.missile.chain_level == 0 => {
+                "Missiles jump to a nearby enemy after a hit".into()
+            }
+            Upgrade::MissileChain => "One more jump per missile".into(),
+            Upgrade::MissileSpeed => "+20% missile speed".into(),
+            Upgrade::MissileEcho if stats.missile.echo_level == 0 => {
+                "Every volley repeats once at 75% damage".into()
+            }
+            Upgrade::MissileEcho => "One more repeat per volley".into(),
+            Upgrade::MissileBurst if stats.missile.burst_level == 0 => {
+                "Hits explode and damage nearby enemies".into()
+            }
+            Upgrade::MissileBurst => "Larger explosion".into(),
+            Upgrade::MissileBurn if stats.missile.burn_level == 0 => {
+                "Hit enemies burn for 3 seconds".into()
+            }
+            Upgrade::MissileBurn => "Burning deals more damage".into(),
             Upgrade::HolyAura if stats.aura.level == 0 => {
                 "A sacred circle burns nearby enemies".into()
             }
@@ -270,6 +352,11 @@ impl Upgrade {
             Upgrade::MissileCount => stats.missile.count < MAX_MISSILE_COUNT,
             Upgrade::MissilePierce => stats.missile.pierce < MAX_MISSILE_PIERCE,
             Upgrade::MissileFork => stats.missile.fork_level < MissileStats::MAX_FORK_LEVEL,
+            Upgrade::MissileChain => stats.missile.chain_level < MissileStats::MAX_CHAIN_LEVEL,
+            Upgrade::MissileSpeed => stats.missile.speed < MAX_MISSILE_SPEED,
+            Upgrade::MissileEcho => stats.missile.echo_level < MissileStats::MAX_ECHO_LEVEL,
+            Upgrade::MissileBurst => stats.missile.burst_level < MissileStats::MAX_BURST_LEVEL,
+            Upgrade::MissileBurn => stats.missile.burn_level < MissileStats::MAX_BURN_LEVEL,
             Upgrade::Dash => stats.dash.level < DashStats::MAX_LEVEL,
             Upgrade::Blink => stats.blink.level < BlinkStats::MAX_LEVEL,
             Upgrade::HolyAura => stats.aura.level < AuraStats::MAX_LEVEL,
@@ -306,6 +393,25 @@ impl Upgrade {
             }
             Upgrade::OrbitingRunes => {
                 stats.runes.level = (stats.runes.level + 1).min(RuneStats::MAX_LEVEL)
+            }
+            Upgrade::MissileChain => {
+                stats.missile.chain_level =
+                    (stats.missile.chain_level + 1).min(MissileStats::MAX_CHAIN_LEVEL)
+            }
+            Upgrade::MissileSpeed => {
+                stats.missile.speed = (stats.missile.speed * 1.2).min(MAX_MISSILE_SPEED)
+            }
+            Upgrade::MissileEcho => {
+                stats.missile.echo_level =
+                    (stats.missile.echo_level + 1).min(MissileStats::MAX_ECHO_LEVEL)
+            }
+            Upgrade::MissileBurst => {
+                stats.missile.burst_level =
+                    (stats.missile.burst_level + 1).min(MissileStats::MAX_BURST_LEVEL)
+            }
+            Upgrade::MissileBurn => {
+                stats.missile.burn_level =
+                    (stats.missile.burn_level + 1).min(MissileStats::MAX_BURN_LEVEL)
             }
             Upgrade::MaxHealth => stats.max_health += 20.0,
             Upgrade::MoveSpeed => stats.move_speed = (stats.move_speed * 1.1).min(MAX_MOVE_SPEED),
@@ -432,6 +538,67 @@ mod tests {
         assert!(high.blink.cooldown() >= 2.8);
         assert!(!Upgrade::Dash.is_available(&high));
         assert!(!Upgrade::Blink.is_available(&high));
+    }
+
+    #[test]
+    fn spell_modifiers_start_locked_and_can_be_levelled() {
+        let mut stats = PlayerStats::default();
+        let m = &stats.missile;
+        assert_eq!(m.chain_count(), 0);
+        assert_eq!(m.echo_count(), 0);
+        assert_eq!(m.burst_radius(), 0.0);
+        assert_eq!(m.burn_dps(), 0.0);
+
+        for upgrade in [
+            Upgrade::MissileChain,
+            Upgrade::MissileEcho,
+            Upgrade::MissileBurst,
+            Upgrade::MissileBurn,
+        ] {
+            upgrade.apply(&mut stats);
+        }
+        let m = &stats.missile;
+        assert_eq!(m.chain_count(), 1);
+        assert_eq!(m.echo_count(), 1);
+        assert!(m.burst_radius() > 0.0);
+        assert!(m.burn_dps() > 0.0);
+
+        let first_burst = m.burst_radius();
+        Upgrade::MissileBurst.apply(&mut stats);
+        assert!(stats.missile.burst_radius() > first_burst);
+    }
+
+    #[test]
+    fn spell_modifiers_stop_being_offered_at_their_cap() {
+        let mut stats = PlayerStats::default();
+        for _ in 0..20 {
+            Upgrade::MissileChain.apply(&mut stats);
+            Upgrade::MissileEcho.apply(&mut stats);
+            Upgrade::MissileBurst.apply(&mut stats);
+            Upgrade::MissileBurn.apply(&mut stats);
+            Upgrade::MissileFork.apply(&mut stats);
+        }
+        for upgrade in [
+            Upgrade::MissileChain,
+            Upgrade::MissileEcho,
+            Upgrade::MissileBurst,
+            Upgrade::MissileBurn,
+            Upgrade::MissileFork,
+        ] {
+            assert!(!upgrade.is_available(&stats), "{upgrade:?} should be maxed");
+        }
+    }
+
+    #[test]
+    fn missile_speed_is_capped() {
+        let mut stats = PlayerStats::default();
+        let mut guard = 0;
+        while Upgrade::MissileSpeed.is_available(&stats) {
+            Upgrade::MissileSpeed.apply(&mut stats);
+            guard += 1;
+            assert!(guard < 100, "MissileSpeed never maxes out");
+        }
+        assert!(stats.missile.speed <= MAX_MISSILE_SPEED);
     }
 
     #[test]

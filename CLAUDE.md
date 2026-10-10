@@ -42,7 +42,9 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   Not available at the start: they are `Upgrade::Dash` / `Upgrade::Blink`, rolled on level-up
   and levelled by rolling them again. Per-level numbers: `DashStats` / `BlinkStats`.
 - Spell modifiers (PoE2-style supports) on the Arcane Missile: Volley (extra projectiles),
-  Piercing, Fork (first hit splits the bolt, `MissileStats::fork_level`). Design rule: every
+  Piercing, Swiftness (speed), Fork (first hit splits the bolt), Chain (jump to the next
+  enemy), Spell Echo (volley repeats), Impact Burst (explosion on hit), Searing Touch (burn).
+  Levels and caps live in `MissileStats`; behavior in `weapons.rs`. Design rule: every
   modifier is an `Upgrade` with levels and caps, nothing is guaranteed, luck decides the build.
 - Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,

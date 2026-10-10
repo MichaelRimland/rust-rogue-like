@@ -14,7 +14,8 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 - **Three spells** that stack into builds: Arcane Missile (fires automatically towards the mouse cursor, piercing volleys),
   Holy Aura (damage field) and Orbiting Runes
 - **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps.
-  Movement skills (Dash, Blink) and spell modifiers (Fork, extra projectiles, piercing) are
+  Movement skills (Dash, Blink) and spell modifiers (Fork, Chain, Spell Echo, Impact Burst,
+  Searing Touch, extra projectiles, piercing) are
   not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres), tougher monsters
 - **Seeded runs**: every run is driven by one seed shown on the game over screen

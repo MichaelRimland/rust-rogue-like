@@ -25,6 +25,7 @@ impl Plugin for WeaponsPlugin {
                 Update,
                 (
                     move_projectiles,
+                    fade_bursts,
                     update_aura_visual,
                     sync_runes,
                     orbit_runes,
@@ -38,6 +39,7 @@ impl Plugin for WeaponsPlugin {
                     (fire_missiles, projectile_hits).chain(),
                     aura_damage,
                     rune_damage,
+                    burn_enemies,
                 )
                     .in_set(GameSet::Combat),
             );
@@ -53,10 +55,21 @@ const MISSILE_SPREAD: f32 = 0.25;
 const FORK_SPACING: f32 = 0.8;
 /// Forked bolts burn out sooner than the original.
 const FORK_LIFETIME: f32 = 1.0;
+/// How far a chaining bolt looks for its next enemy.
+const CHAIN_RANGE: f32 = 280.0;
+/// A chained bolt lives at least this long, so it can reach its next target.
+const CHAIN_LIFETIME: f32 = 1.2;
+/// Seconds between a volley and each of its echoes.
+const ECHO_DELAY: f32 = 0.2;
+const BURN_DURATION: f32 = 3.0;
+const BURN_TICK: f32 = 0.5;
+const BURST_SECS: f32 = 0.25;
 
 #[derive(Resource, Default)]
 struct WeaponTimers {
     missile_cooldown: f32,
+    /// Seconds until each queued echo volley is fired (Spell Echo).
+    pending_echoes: Vec<f32>,
     aura_tick: f32,
     rune_tick: f32,
     rune_angle: f32,
@@ -70,8 +83,25 @@ struct Projectile {
     lifetime: f32,
     /// Whether the bolt still splits on its next hit (Fork support).
     can_fork: bool,
+    /// How many times the bolt may still jump to a new enemy (Chain support).
+    chains_left: u32,
     /// Enemies already hit, so a piercing bolt damages each enemy only once.
     hit: Vec<Entity>,
+}
+
+/// Damage over time applied by Searing Touch.
+#[derive(Component)]
+struct Burning {
+    dps: f32,
+    remaining: f32,
+    tick: f32,
+}
+
+/// The short expanding ring shown for Impact Burst.
+#[derive(Component)]
+struct BurstRing {
+    lifetime: f32,
+    radius: f32,
 }
 
 fn spawn_projectile(
@@ -116,7 +146,8 @@ fn spawn_aura(mut commands: Commands, assets: Res<GameAssets>) {
 // Arcane Missile
 // ---------------------------------------------------------------------------
 
-/// Fires a fan of bolts towards the mouse cursor whenever the cooldown is ready.
+/// Fires a fan of bolts towards the mouse cursor whenever the cooldown is ready, plus the
+/// echoes of earlier volleys (Spell Echo).
 fn fire_missiles(
     mut commands: Commands,
     time: Res<Time>,
@@ -127,11 +158,23 @@ fn fire_missiles(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
 ) {
-    timers.missile_cooldown -= time.delta_secs();
-    if timers.missile_cooldown > 0.0 {
+    let dt = time.delta_secs();
+    timers.missile_cooldown -= dt;
+
+    let mut due_echoes = 0;
+    timers.pending_echoes.retain_mut(|delay| {
+        *delay -= dt;
+        if *delay <= 0.0 {
+            due_echoes += 1;
+            false
+        } else {
+            true
+        }
+    });
+    let main_ready = timers.missile_cooldown <= 0.0;
+    if !main_ready && due_echoes == 0 {
         return;
     }
-    timers.missile_cooldown = stats.missile.cooldown;
 
     let (transform, player) = player.into_inner();
     let origin = transform.translation.truncate();
@@ -139,26 +182,47 @@ fn fire_missiles(
     // Aim at the cursor; keep the last move direction when the cursor is outside the window.
     let (camera, camera_transform) = *camera;
     let cursor_world = cursor_world_position(&window, camera, camera_transform);
-    let base = cursor_world
+    let aim = cursor_world
         .map(|target| (target - origin).normalize_or(player.facing))
         .unwrap_or(player.facing);
 
-    // Spread the volley symmetrically around the aim direction.
+    if main_ready {
+        timers.missile_cooldown = stats.missile.cooldown;
+        spawn_volley(&mut commands, &assets, &stats, origin, aim, 1.0);
+        for echo in 1..=stats.missile.echo_count() {
+            timers.pending_echoes.push(echo as f32 * ECHO_DELAY);
+        }
+    }
+    for _ in 0..due_echoes {
+        let factor = MissileStats::ECHO_DAMAGE_FACTOR;
+        spawn_volley(&mut commands, &assets, &stats, origin, aim, factor);
+    }
+}
+
+/// Spawns one volley, spread symmetrically around `aim`.
+fn spawn_volley(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    stats: &Stats,
+    origin: Vec2,
+    aim: Vec2,
+    damage_factor: f32,
+) {
     let count = stats.missile.count as usize;
     let middle = (count as f32 - 1.0) / 2.0;
     for i in 0..count {
-        let direction = Vec2::from_angle((i as f32 - middle) * MISSILE_SPREAD).rotate(base);
-
+        let direction = Vec2::from_angle((i as f32 - middle) * MISSILE_SPREAD).rotate(aim);
         spawn_projectile(
-            &mut commands,
-            &assets,
+            commands,
+            assets,
             origin,
             Projectile {
                 velocity: direction * stats.missile.speed,
-                damage: stats.missile.damage,
+                damage: stats.missile.damage * damage_factor,
                 pierce_left: stats.missile.pierce,
                 lifetime: MISSILE_LIFETIME,
                 can_fork: stats.missile.fork_count() > 0,
+                chains_left: stats.missile.chain_count(),
                 hit: Vec::new(),
             },
         );
@@ -218,10 +282,66 @@ fn projectile_hits(
             });
             projectile.hit.push(enemy_entity);
 
+            // Searing Touch: the enemy keeps taking damage for a few seconds.
+            if stats.missile.burn_level > 0 {
+                commands.entity(enemy_entity).try_insert(Burning {
+                    dps: stats.missile.burn_dps(),
+                    remaining: BURN_DURATION,
+                    tick: BURN_TICK,
+                });
+            }
+
+            // Impact Burst: weaker damage to everything around the hit.
+            let burst_radius = stats.missile.burst_radius();
+            if burst_radius > 0.0 {
+                let amount = projectile.damage * MissileStats::BURST_DAMAGE_FACTOR;
+                grid.0.for_each_in_radius(
+                    position.x,
+                    position.y,
+                    burst_radius + MAX_ENEMY_RADIUS,
+                    |other, _, _, d2| {
+                        if other == enemy_entity {
+                            return;
+                        }
+                        if let Ok(other_enemy) = enemies.get(other) {
+                            let reach = burst_radius + other_enemy.radius;
+                            if d2 <= reach * reach {
+                                damage.write(DamageEnemy {
+                                    entity: other,
+                                    amount,
+                                });
+                            }
+                        }
+                    },
+                );
+                commands.spawn((
+                    BurstRing {
+                        lifetime: BURST_SECS,
+                        radius: burst_radius,
+                    },
+                    Mesh2d(assets.circle.clone()),
+                    MeshMaterial2d(assets.aura.clone()),
+                    Transform::from_xyz(position.x, position.y, 3.0)
+                        .with_scale(Vec3::splat(burst_radius * 0.4)),
+                    DespawnOnExit(AppState::InGame),
+                ));
+            }
+
             // Fork: split into several weaker bolts fanning out from the hit.
             if projectile.can_fork {
                 projectile.can_fork = false;
                 fork_projectile(&mut commands, &assets, &stats, position, &projectile);
+            }
+
+            // Chain: redirect the bolt to the nearest enemy it has not touched yet.
+            if projectile.chains_left > 0
+                && let Some(target) = nearest_unhit(&grid, position, &projectile.hit)
+            {
+                projectile.chains_left -= 1;
+                let speed = projectile.velocity.length();
+                projectile.velocity = (target - position).normalize_or_zero() * speed;
+                projectile.lifetime = projectile.lifetime.max(CHAIN_LIFETIME);
+                break;
             }
 
             if projectile.pierce_left == 0 {
@@ -229,6 +349,61 @@ fn projectile_hits(
                 break;
             }
             projectile.pierce_left -= 1;
+        }
+    }
+}
+
+/// Position of the closest enemy within [`CHAIN_RANGE`] that is not in `hit`.
+fn nearest_unhit(grid: &EnemyGrid, position: Vec2, hit: &[Entity]) -> Option<Vec2> {
+    let mut best: Option<(f32, Vec2)> = None;
+    grid.0
+        .for_each_in_radius(position.x, position.y, CHAIN_RANGE, |entity, x, y, d2| {
+            if hit.contains(&entity) {
+                return;
+            }
+            if best.is_none_or(|(best_d2, _)| d2 < best_d2) {
+                best = Some((d2, Vec2::new(x, y)));
+            }
+        });
+    best.map(|(_, point)| point)
+}
+
+fn fade_bursts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut rings: Query<(Entity, &mut Transform, &mut BurstRing)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut transform, mut ring) in &mut rings {
+        ring.lifetime -= dt;
+        if ring.lifetime <= 0.0 {
+            commands.entity(entity).try_despawn();
+            continue;
+        }
+        let progress = 1.0 - ring.lifetime / BURST_SECS;
+        transform.scale = Vec3::splat(ring.radius * (0.4 + 0.6 * progress));
+    }
+}
+
+fn burn_enemies(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut burning: Query<(Entity, &mut Burning)>,
+    mut damage: MessageWriter<DamageEnemy>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut burn) in &mut burning {
+        burn.remaining -= dt;
+        burn.tick -= dt;
+        if burn.tick <= 0.0 {
+            burn.tick += BURN_TICK;
+            damage.write(DamageEnemy {
+                entity,
+                amount: burn.dps * BURN_TICK,
+            });
+        }
+        if burn.remaining <= 0.0 {
+            commands.entity(entity).try_remove::<Burning>();
         }
     }
 }
@@ -257,6 +432,7 @@ fn fork_projectile(
                 pierce_left: 0,
                 lifetime: FORK_LIFETIME,
                 can_fork: false,
+                chains_left: 0,
                 // The enemy that caused the fork must not be hit again.
                 hit: parent.hit.clone(),
             },
