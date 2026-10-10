@@ -1027,7 +1027,360 @@ def soft_light() -> Image.Image:
     return image
 
 
+# --------------------------------------------------------------------------- upgrade icons
+
+ICON = 16
+C_LILAC, C_PURPLE, C_DEEP = rgb("#c9a8ff"), rgb("#8f6af0"), rgb("#5b3a9e")
+C_TEAL, C_TEAL_D = rgb("#62c9c0"), rgb("#2a7a80")
+C_GOLD, C_GOLD_L = rgb("#e0a830"), rgb("#ffe27a")
+C_RED, C_EMBER, C_BLOOD = rgb("#c02f2f"), rgb("#ec6a4a"), rgb("#7a1c26")
+C_WHITE, C_GRAY, C_GRAY_D = rgb("#f2ecdf"), rgb("#a8a0ae"), rgb("#5a5266")
+C_GREEN, C_GREEN_L, C_BROWN = rgb("#4c8044"), rgb("#86b04f"), rgb("#7a4a2a")
+
+
+def px_line(c, x0, y0, x1, y1, color):
+    steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for i in range(steps + 1):
+        c.put(round(x0 + (x1 - x0) * i / steps), round(y0 + (y1 - y0) * i / steps), color)
+
+
+def px_disc(c, cx, cy, r, color):
+    for y in range(c.size):
+        for x in range(c.size):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r + 0.3:
+                c.put(x, y, color)
+
+
+def px_ring(c, cx, cy, r, color):
+    for y in range(c.size):
+        for x in range(c.size):
+            d = math.hypot(x - cx, y - cy)
+            if r - 0.6 <= d <= r + 0.6:
+                c.put(x, y, color)
+
+
+def px_poly(c, points, color):
+    """Filled polygon (even-odd rule)."""
+    for y in range(c.size):
+        for x in range(c.size):
+            inside = False
+            j = len(points) - 1
+            for i in range(len(points)):
+                xi, yi = points[i]
+                xj, yj = points[j]
+                if (yi > y + 0.5) != (yj > y + 0.5) and x + 0.5 < (xj - xi) * (y + 0.5 - yi) / (yj - yi) + xi:
+                    inside = not inside
+                j = i
+            if inside:
+                c.put(x, y, color)
+
+
+def px_bolt(c, cx, cy, color=None, core=None):
+    """A small arcane bolt pointing right."""
+    color, core = color or C_PURPLE, core or C_LILAC
+    for dx, half in ((-4, 0), (-3, 1), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 0), (3, 0)):
+        for dy in range(-half, half + 1):
+            c.put(cx + dx, cy + dy, core if dx > -2 else color)
+
+
+def px_star(c, cx, cy, r, color, diag=True):
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) + (((1, 1), (-1, 1), (1, -1), (-1, -1)) if diag else ()):
+        reach = r if dx == 0 or dy == 0 else max(1, r // 2 + 1)
+        px_line(c, cx, cy, cx + dx * reach, cy + dy * reach, color)
+
+
+def px_arrow(c, x0, y0, x1, y1, color):
+    px_line(c, x0, y0, x1, y1, color)
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / length, dy / length
+    for sign in (1, -1):
+        hx = x1 - ux * 3 - sign * uy * 2
+        hy = y1 - uy * 3 + sign * ux * 2
+        px_line(c, x1, y1, round(hx), round(hy), color)
+
+
+def icon_damage(c):
+    px_poly(c, [(3, 13), (4, 14), (13, 4), (12, 3)], C_WHITE)
+    px_line(c, 4, 9, 9, 14, C_GOLD)
+    px_line(c, 3, 13, 1, 15, C_BROWN)
+    px_star(c, 12, 4, 2, C_EMBER, diag=False)
+
+
+def icon_rate(c):
+    px_poly(c, [(4, 2), (12, 2), (8, 8)], C_GOLD)
+    px_poly(c, [(8, 8), (4, 14), (12, 14)], C_GOLD_L)
+    px_line(c, 3, 2, 13, 2, C_GRAY)
+    px_line(c, 3, 14, 13, 14, C_GRAY)
+
+
+def icon_volley(c):
+    for dy in (-5, 0, 5):
+        px_line(c, 3, 8, 13, 8 + dy, C_DEEP)
+        px_bolt(c, 12, 8 + dy, C_PURPLE, C_LILAC)
+
+
+def icon_pierce(c):
+    px_line(c, 8, 2, 8, 14, C_GRAY_D)
+    px_line(c, 7, 2, 7, 14, C_GRAY)
+    px_arrow(c, 1, 8, 14, 8, C_LILAC)
+
+
+def icon_fork(c):
+    px_line(c, 2, 8, 7, 8, C_LILAC)
+    px_arrow(c, 7, 8, 14, 3, C_PURPLE)
+    px_arrow(c, 7, 8, 14, 13, C_PURPLE)
+
+
+def icon_chain(c):
+    for i, cx in enumerate((4, 8, 12)):
+        px_ring(c, cx, 8, 2.3, C_GOLD if i % 2 == 0 else C_GRAY)
+
+
+def icon_swift(c):
+    for x in (2, 6, 10):
+        px_line(c, x, 3, x + 4, 8, C_TEAL)
+        px_line(c, x + 4, 8, x, 13, C_TEAL)
+        px_line(c, x + 1, 3, x + 5, 8, C_TEAL_D)
+
+
+def icon_echo(c):
+    px_bolt(c, 6, 9, C_DEEP, C_PURPLE)
+    px_bolt(c, 11, 6, C_PURPLE, C_LILAC)
+    px_line(c, 1, 12, 4, 12, C_GRAY_D)
+
+
+def icon_burst(c):
+    px_star(c, 8, 8, 6, C_GOLD)
+    px_disc(c, 8, 8, 2, C_EMBER)
+    c.put(8, 8, C_WHITE)
+
+
+def icon_flame(c, outer, inner):
+    px_poly(c, [(8, 1), (12, 7), (13, 11), (11, 14), (5, 14), (3, 11), (4, 7), (6, 6)], outer)
+    px_poly(c, [(8, 6), (10, 10), (9, 13), (7, 13), (6, 10)], inner)
+
+
+def icon_burn(c):
+    icon_flame(c, C_EMBER, C_GOLD_L)
+
+
+def icon_aura(c):
+    px_ring(c, 8, 8, 6.5, C_GOLD)
+    px_ring(c, 8, 8, 4, C_GOLD_L)
+    px_disc(c, 8, 8, 1, C_WHITE)
+
+
+def icon_runes(c):
+    px_poly(c, [(8, 1), (14, 4), (14, 12), (8, 15), (2, 12), (2, 4)], C_GOLD)
+    px_poly(c, [(8, 3), (12, 5), (12, 11), (8, 13), (4, 11), (4, 5)], C_GOLD_L)
+    px_line(c, 8, 5, 8, 11, C_BLOOD)
+    px_line(c, 6, 7, 10, 7, C_BLOOD)
+
+
+def icon_health(c):
+    px_disc(c, 5, 6, 3, C_RED)
+    px_disc(c, 11, 6, 3, C_RED)
+    px_poly(c, [(2, 7), (14, 7), (8, 14)], C_RED)
+    c.put(4, 5, C_EMBER)
+    c.put(5, 4, C_EMBER)
+
+
+def icon_boots(c):
+    px_poly(c, [(5, 2), (10, 2), (10, 9), (14, 11), (14, 14), (4, 14), (4, 9)], C_BROWN)
+    px_line(c, 4, 13, 14, 13, C_GOLD)
+    px_line(c, 5, 4, 9, 4, C_GOLD_L)
+    px_line(c, 1, 6, 3, 6, C_TEAL)
+    px_line(c, 1, 9, 3, 9, C_TEAL)
+
+
+def icon_magnet(c):
+    px_poly(c, [(3, 3), (6, 3), (6, 10), (10, 10), (10, 3), (13, 3), (13, 13), (3, 13)], C_RED)
+    px_poly(c, [(3, 2), (6, 2), (6, 5), (3, 5)], C_GRAY)
+    px_poly(c, [(10, 2), (13, 2), (13, 5), (10, 5)], C_GRAY)
+
+
+def icon_regen(c):
+    px_poly(c, [(6, 2), (10, 2), (10, 6), (14, 6), (14, 10), (10, 10), (10, 14), (6, 14), (6, 10), (2, 10), (2, 6), (6, 6)], C_GREEN)
+    px_poly(c, [(7, 3), (9, 3), (9, 7), (13, 7), (13, 9), (9, 9), (9, 13), (7, 13), (7, 9), (3, 9), (3, 7), (7, 7)], C_GREEN_L)
+
+
+def icon_dash(c):
+    for y in (4, 8, 12):
+        px_line(c, 1, y, 6, y, C_GRAY)
+    px_line(c, 7, 3, 13, 8, C_WHITE)
+    px_line(c, 13, 8, 7, 13, C_WHITE)
+    px_line(c, 8, 3, 14, 8, C_TEAL)
+
+
+def icon_blink(c):
+    px_star(c, 5, 10, 4, C_TEAL, diag=False)
+    px_star(c, 11, 5, 3, C_TEAL_D, diag=False)
+    c.put(5, 10, C_WHITE)
+    c.put(11, 5, C_WHITE)
+    px_line(c, 6, 9, 10, 6, C_GRAY_D)
+
+
+def icon_sanctum(c):
+    px_ring(c, 8, 8, 6.5, C_GOLD_L)
+    px_poly(c, [(8, 4), (11, 6), (11, 10), (8, 12), (5, 10), (5, 6)], C_GOLD)
+    px_disc(c, 8, 8, 1, C_WHITE)
+
+
+def icon_prism(c):
+    px_poly(c, [(8, 2), (14, 13), (2, 13)], C_WHITE)
+    px_poly(c, [(8, 6), (11, 12), (5, 12)], C_LILAC)
+    px_line(c, 1, 9, 5, 9, C_GOLD)
+    for dy, col in ((-2, C_RED), (0, C_GOLD_L), (2, C_TEAL)):
+        px_line(c, 11, 9 + dy // 2, 15, 9 + dy, col)
+
+
+def icon_tempest(c):
+    for r, col in ((6.5, C_LILAC), (4.5, C_PURPLE), (2.5, C_DEEP)):
+        px_ring(c, 8, 8, r, col)
+    for x, y in ((14, 8), (8, 2), (2, 8), (8, 14)):
+        c.put(x, y, C_WHITE)
+    px_disc(c, 8, 8, 1, C_WHITE)
+
+
+def icon_returning(c):
+    px_line(c, 3, 6, 3, 10, C_LILAC)
+    px_line(c, 4, 11, 10, 11, C_LILAC)
+    px_line(c, 11, 10, 11, 5, C_LILAC)
+    px_arrow(c, 11, 8, 11, 3, C_PURPLE)
+    px_bolt(c, 5, 5, C_DEEP, C_PURPLE)
+
+
+def icon_backfire(c):
+    px_arrow(c, 8, 8, 14, 8, C_LILAC)
+    px_arrow(c, 8, 8, 2, 8, C_PURPLE)
+    px_arrow(c, 8, 8, 8, 2, C_PURPLE)
+    px_arrow(c, 8, 8, 8, 14, C_PURPLE)
+    px_disc(c, 8, 8, 1, C_WHITE)
+
+
+def icon_seeking(c):
+    px_ring(c, 9, 8, 4.5, C_TEAL)
+    px_line(c, 9, 1, 9, 4, C_TEAL)
+    px_line(c, 9, 12, 9, 15, C_TEAL)
+    px_line(c, 3, 8, 6, 8, C_TEAL)
+    px_line(c, 12, 8, 15, 8, C_TEAL)
+    px_disc(c, 9, 8, 1, C_RED)
+    px_bolt(c, 3, 13, C_DEEP, C_PURPLE)
+
+
+def icon_precision(c):
+    px_star(c, 8, 8, 6, C_GOLD_L, diag=False)
+    px_ring(c, 8, 8, 3, C_GOLD)
+    px_disc(c, 8, 8, 1, C_RED)
+
+
+def icon_frost(c):
+    for dx, dy in ((7, 0), (4, 6), (4, -6)):
+        px_line(c, 8 - dx // 2 - (dx > 4), 8 - dy // 2 - (dy > 0) * 0, 8 + dx // 2 + (dx > 4), 8 + dy // 2, C_TEAL)
+    px_line(c, 8, 1, 8, 15, C_TEAL)
+    px_line(c, 2, 4, 14, 12, C_TEAL)
+    px_line(c, 2, 12, 14, 4, C_TEAL)
+    px_disc(c, 8, 8, 1, C_WHITE)
+
+
+def icon_knockback(c):
+    px_poly(c, [(9, 4), (14, 4), (14, 12), (9, 12)], C_GRAY)
+    px_line(c, 10, 5, 13, 5, C_WHITE)
+    px_arrow(c, 1, 8, 8, 8, C_EMBER)
+
+
+def icon_shock(c):
+    px_poly(c, [(9, 1), (3, 9), (7, 9), (6, 15), (13, 6), (9, 6), (11, 1)], C_GOLD_L)
+    px_poly(c, [(9, 3), (5, 8), (8, 8), (7, 12), (11, 7), (8, 7)], C_WHITE)
+
+
+def icon_size(c):
+    px_disc(c, 8, 8, 6, C_DEEP)
+    px_disc(c, 8, 8, 4, C_PURPLE)
+    px_disc(c, 7, 7, 2, C_LILAC)
+
+
+def icon_drain(c):
+    px_poly(c, [(8, 2), (12, 8), (12, 11), (10, 14), (6, 14), (4, 11), (4, 8)], C_RED)
+    px_line(c, 6, 9, 6, 11, C_EMBER)
+    px_star(c, 12, 4, 2, C_PURPLE, diag=False)
+
+
+def icon_rage(c):
+    icon_flame(c, C_RED, C_EMBER)
+    px_line(c, 6, 9, 7, 10, C_BLOOD)
+    px_line(c, 10, 9, 9, 10, C_BLOOD)
+
+
+def icon_storm(c):
+    px_disc(c, 5, 5, 3, C_GRAY)
+    px_disc(c, 10, 5, 3, C_GRAY)
+    px_disc(c, 8, 7, 3, C_GRAY_D)
+    px_poly(c, [(9, 7), (5, 12), (8, 12), (7, 15), (12, 10), (9, 10), (11, 7)], C_GOLD_L)
+
+
+def icon_nova(c):
+    px_ring(c, 8, 8, 6, C_TEAL)
+    px_ring(c, 8, 8, 3, C_WHITE)
+    px_star(c, 8, 8, 7, C_TEAL_D)
+
+
+ICONS = {
+    "damage": icon_damage, "rate": icon_rate, "volley": icon_volley, "pierce": icon_pierce,
+    "fork": icon_fork, "chain": icon_chain, "swift": icon_swift, "echo": icon_echo,
+    "burst": icon_burst, "burn": icon_burn, "aura": icon_aura, "runes": icon_runes,
+    "health": icon_health, "boots": icon_boots, "magnet": icon_magnet, "regen": icon_regen,
+    "dash": icon_dash, "blink": icon_blink, "sanctum": icon_sanctum, "prism": icon_prism,
+    "tempest": icon_tempest, "returning": icon_returning, "backfire": icon_backfire,
+    "seeking": icon_seeking, "precision": icon_precision, "frost": icon_frost,
+    "knockback": icon_knockback, "shock": icon_shock, "size": icon_size,
+    "drain": icon_drain, "rage": icon_rage, "storm": icon_storm, "nova": icon_nova,
+}
+
+
+def make_icon(draw):
+    def build():
+        c = Canvas(ICON)
+        draw(c)
+        return c.image()
+    return build
+
+
+def panel_frame() -> Image.Image:
+    """A 24x24 nine-slice frame: dark core, carved stone border, golden corner studs."""
+    size = 24
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    px = image.load()
+    outline, fill = rgb("#0d0b14"), rgb("#1a1626")
+    light, mid, dark = rgb("#7d7589"), rgb("#5a5266"), rgb("#3d3550")
+    gold, gold_dark = rgb("#e0a830"), rgb("#8a5a12")
+    for y in range(size):
+        for x in range(size):
+            edge = min(x, y, size - 1 - x, size - 1 - y)
+            if edge == 0:
+                color = outline
+            elif edge in (1, 2):
+                # lit from the top left
+                color = light if min(x, y) < min(size - 1 - x, size - 1 - y) else dark
+                if edge == 2:
+                    color = mid
+            elif edge == 3:
+                color = outline
+            else:
+                color = fill
+            px[x, y] = (*color, 255)
+    # golden studs in the four corners
+    for cx, cy in ((3, 3), (size - 4, 3), (3, size - 4), (size - 4, size - 4)):
+        for dx in (0, 1):
+            for dy in (0, 1):
+                px[cx - dx, cy - dy] = (*gold, 255)
+        px[cx, cy] = (*gold_dark, 255)
+    return image
+
+
 SPRITES = {
+    "panel": panel_frame,
     "light": soft_light,
     "wizard_0": lambda: wizard(0),
     "wizard_1": lambda: wizard(1),
@@ -1076,6 +1429,9 @@ SPRITES = {
     "decor_mushroom": decor_mushroom,
     "decor_tuft": decor_tuft,
 }
+
+
+SPRITES.update({f"icon_{name}": make_icon(draw) for name, draw in ICONS.items()})
 
 
 def contact_sheet(images: dict[str, Image.Image], scale: int = 8) -> Image.Image:

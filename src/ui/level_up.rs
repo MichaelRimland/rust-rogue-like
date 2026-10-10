@@ -2,9 +2,10 @@
 
 use bevy::prelude::*;
 
-use super::{ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, PANEL_COLOR, TEXT_COLOR, label};
+use super::{ACCENT_COLOR, MUTED_TEXT_COLOR, OVERLAY_COLOR, TEXT_COLOR, label, panel_image};
 use crate::{
     GamePhase,
+    assets::GameAssets,
     progression::{ChooseUpgrade, LevelUpChoices, PendingLevelUps},
     run::Stats,
 };
@@ -23,7 +24,7 @@ impl Plugin for LevelUpUiPlugin {
 }
 
 /// Background of the card under the mouse.
-const HOVER_COLOR: Color = Color::srgba(0.14, 0.16, 0.24, 0.96);
+const HOVER_COLOR: Color = Color::srgb(1.5, 1.4, 1.1);
 
 #[derive(Component)]
 struct LevelUpScreen;
@@ -33,6 +34,7 @@ fn rebuild_level_up_screen(
     choices: Res<LevelUpChoices>,
     pending: Res<PendingLevelUps>,
     stats: Res<Stats>,
+    assets: Res<GameAssets>,
     existing: Query<Entity, With<LevelUpScreen>>,
 ) {
     for entity in &existing {
@@ -83,53 +85,64 @@ fn rebuild_level_up_screen(
         commands
             .spawn((
                 Node {
-                    width: px(260.0),
-                    min_height: px(150.0),
+                    width: px(320.0),
+                    min_height: px(290.0),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
-                    row_gap: px(12.0),
-                    padding: UiRect::all(px(16.0)),
-                    border: UiRect::all(px(2.0)),
-                    border_radius: BorderRadius::all(px(10.0)),
+                    row_gap: px(10.0),
+                    padding: UiRect::all(px(30.0)),
                     ..default()
                 },
-                BackgroundColor(PANEL_COLOR),
-                BorderColor::all(ACCENT_COLOR),
+                panel_image(assets.panel.clone()),
                 ChildOf(row),
                 children![
                     label(format!("[{}]", index + 1), 22.0, ACCENT_COLOR),
-                    label(upgrade.title(&stats), 22.0, TEXT_COLOR),
-                    label(upgrade.description(&stats), 17.0, MUTED_TEXT_COLOR),
+                    (
+                        ImageNode::new(assets.icon(*upgrade)),
+                        Node {
+                            width: px(64.0),
+                            height: px(64.0),
+                            ..default()
+                        },
+                    ),
+                    (label(upgrade.title(&stats), 20.0, TEXT_COLOR), wrapped(),),
+                    (
+                        label(upgrade.description(&stats), 15.0, MUTED_TEXT_COLOR),
+                        wrapped(),
+                    ),
                 ],
             ))
-            // Cards can be picked with the mouse: hover highlights, a click chooses.
+            // Cards can be picked with the mouse: hover brightens the frame, a click chooses.
             .observe(
                 move |_click: On<PointerClick>, mut picks: MessageWriter<ChooseUpgrade>| {
                     picks.write(ChooseUpgrade(index));
                 },
             )
-            .observe(
-                |over: On<PointerOver>,
-                 mut cards: Query<(&mut BackgroundColor, &mut BorderColor)>| {
-                    if let Ok((mut background, mut border)) = cards.get_mut(over.event_target()) {
-                        background.0 = HOVER_COLOR;
-                        border.set_all(TEXT_COLOR);
-                    }
-                },
-            )
-            .observe(
-                |out: On<PointerOut>,
-                 mut cards: Query<(&mut BackgroundColor, &mut BorderColor)>| {
-                    if let Ok((mut background, mut border)) = cards.get_mut(out.event_target()) {
-                        background.0 = PANEL_COLOR;
-                        border.set_all(ACCENT_COLOR);
-                    }
-                },
-            );
+            .observe(|over: On<PointerOver>, mut cards: Query<&mut ImageNode>| {
+                if let Ok(mut card) = cards.get_mut(over.event_target()) {
+                    card.color = HOVER_COLOR;
+                }
+            })
+            .observe(|out: On<PointerOut>, mut cards: Query<&mut ImageNode>| {
+                if let Ok(mut card) = cards.get_mut(out.event_target()) {
+                    card.color = Color::WHITE;
+                }
+            });
     }
 
     commands.spawn((
         label("Click a card or press 1, 2 or 3", 20.0, MUTED_TEXT_COLOR),
         ChildOf(root),
     ));
+}
+
+/// Makes a card text fill the card's inner width, so long lines wrap inside the frame.
+fn wrapped() -> impl Bundle {
+    (
+        Node {
+            width: px(250.0),
+            ..default()
+        },
+        TextLayout::default().with_justify(Justify::Center),
+    )
 }

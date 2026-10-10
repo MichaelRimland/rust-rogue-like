@@ -9,7 +9,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::logic::{dungeon::Biome, enemies::EnemyKind};
+use crate::logic::{dungeon::Biome, enemies::EnemyKind, stats::Upgrade};
 
 /// Sprites are shown at this multiple of their pixel size (an integer keeps pixels square).
 pub const SPRITE_SCALE: f32 = 2.0;
@@ -58,6 +58,9 @@ pub struct GameAssets {
     /// The expanding ring of Frost Nova.
     pub ice: Handle<ColorMaterial>,
     /// Soft ellipse under characters, a warm light under the wizard and the bolt trail.
+    /// Level-up card icons in the order of [`Upgrade::ALL`], and the UI frame texture.
+    icons: Vec<Handle<Image>>,
+    pub panel: Handle<Image>,
     /// A soft round gradient (linear sampling) for light pools and shadows.
     light: Handle<Image>,
     pub trail: Handle<ColorMaterial>,
@@ -103,6 +106,14 @@ impl GameAssets {
 
     pub fn mote(&self, biome: Biome) -> Handle<ColorMaterial> {
         self.motes[biome as usize].clone()
+    }
+
+    pub fn icon(&self, upgrade: Upgrade) -> Handle<Image> {
+        let index = Upgrade::ALL
+            .iter()
+            .position(|&candidate| candidate == upgrade)
+            .unwrap_or(0);
+        self.icons[index].clone()
     }
 
     pub fn ground(&self, biome: Biome) -> Handle<Image> {
@@ -152,9 +163,15 @@ fn gem_tier(xp: u32) -> usize {
 fn create_assets(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut fonts: ResMut<Assets<Font>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // A pixel font replaces Bevy's default font, so every piece of text uses it. The file is
+    // embedded, which keeps the browser build free of extra downloads. License: OFL.
+    let font = Font::from_bytes(include_bytes!("../assets/fonts/VT323-Regular.ttf").to_vec());
+    let _ = fonts.insert(AssetId::default(), font);
+
     let sprite = |name: &str| asset_server.load(format!("sprites/{name}.png"));
     let frames = |name: &str| [sprite(&format!("{name}_0")), sprite(&format!("{name}_1"))];
     let mut mat = |color: Color| materials.add(color);
@@ -234,6 +251,11 @@ fn create_assets(
 
         aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),
         ice: mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
+        icons: Upgrade::ALL
+            .iter()
+            .map(|upgrade| sprite(&format!("icon_{}", upgrade.icon_name())))
+            .collect(),
+        panel: sprite("panel"),
         light: asset_server
             .load_builder()
             .with_settings(|settings: &mut ImageLoaderSettings| {

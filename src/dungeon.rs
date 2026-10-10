@@ -30,7 +30,7 @@ use crate::{
     player::{Health, Player},
     progression::{PendingLevelUps, XpGem},
     run::{GameRng, RunStats, Stats},
-    ui::{ACCENT_COLOR, MUTED_TEXT_COLOR, TEXT_COLOR, label},
+    ui::{ACCENT_COLOR, FONT_SCALE, MUTED_TEXT_COLOR, TEXT_COLOR, label},
 };
 
 pub struct DungeonPlugin;
@@ -351,7 +351,7 @@ fn enter_room(
                 children![(
                     Text2d::new("Treasure"),
                     TextFont {
-                        font_size: FontSize::Px(14.0),
+                        font_size: FontSize::Px((14.0) * FONT_SCALE),
                         ..default()
                     },
                     TextColor(ACCENT_COLOR),
@@ -479,7 +479,7 @@ fn spawn_shop(commands: &mut Commands, assets: &GameAssets, rng: &mut GameRng, s
             children![(
                 Text2d::new(format!("{title}\n{price} gold")),
                 TextFont {
-                    font_size: FontSize::Px(14.0),
+                    font_size: FontSize::Px((14.0) * FONT_SCALE),
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -533,7 +533,7 @@ fn spawn_doors(commands: &mut Commands, assets: &GameAssets, dungeon: &Dungeon) 
                 (
                     Text2d::new(name),
                     TextFont {
-                        font_size: FontSize::Px(16.0),
+                        font_size: FontSize::Px((16.0) * FONT_SCALE),
                         ..default()
                     },
                     TextColor(TEXT_COLOR),
@@ -557,7 +557,7 @@ fn spawn_banner(commands: &mut Commands, text: String, position: Vec2, color: Co
         },
         Text2d::new(text),
         TextFont {
-            font_size: FontSize::Px(size),
+            font_size: FontSize::Px((size) * FONT_SCALE),
             ..default()
         },
         TextColor(color),

@@ -26,12 +26,27 @@ pub const ACCENT_COLOR: Color = Color::srgb(0.98, 0.80, 0.40);
 pub const PANEL_COLOR: Color = Color::srgba(0.06, 0.07, 0.10, 0.92);
 pub const OVERLAY_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.6);
 
+/// A nine-slice frame image for panels. The corners are drawn up to three times larger,
+/// so the carved border keeps its proportions on big cards.
+pub fn panel_image(image: Handle<Image>) -> ImageNode {
+    let mut node = ImageNode::new(image);
+    node.image_mode = NodeImageMode::Sliced(TextureSlicer {
+        border: BorderRect::all(8.0),
+        max_corner_scale: 3.0,
+        ..default()
+    });
+    node
+}
+
+/// The pixel font is drawn smaller than Bevy's default font at the same nominal size.
+pub const FONT_SCALE: f32 = 1.3;
+
 /// A text node with a fixed pixel size.
 pub fn label(text: impl Into<String>, size: f32, color: Color) -> impl Bundle {
     (
         Text::new(text),
         TextFont {
-            font_size: FontSize::Px(size),
+            font_size: FontSize::Px(size * FONT_SCALE),
             ..default()
         },
         TextColor(color),

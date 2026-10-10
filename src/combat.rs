@@ -15,6 +15,7 @@ use crate::{
     progression::spawn_gem,
     run::{GameRng, RunStats, Stats},
     skills::MovementSkills,
+    ui::FONT_SCALE,
     world::CameraShake,
 };
 
@@ -139,7 +140,9 @@ fn apply_damage(
                 },
                 Text2d::new(format!("{amount:.0}")),
                 TextFont {
-                    font_size: FontSize::Px(if amount >= BIG_HIT { 18.0 } else { 14.0 }),
+                    font_size: FontSize::Px(
+                        (if amount >= BIG_HIT { 18.0 } else { 14.0 }) * FONT_SCALE,
+                    ),
                     ..default()
                 },
                 TextColor(color),

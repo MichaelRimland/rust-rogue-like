@@ -522,6 +522,45 @@ impl Upgrade {
     /// Health restored immediately when `MaxHealth` is picked.
     pub const MAX_HEALTH_HEAL: f32 = 25.0;
 
+    /// Name of the icon file (`assets/sprites/icon_<name>.png`) shown on the level-up card.
+    pub fn icon_name(self) -> &'static str {
+        match self {
+            Upgrade::MissileDamage => "damage",
+            Upgrade::MissileRate => "rate",
+            Upgrade::MissileCount => "volley",
+            Upgrade::MissilePierce => "pierce",
+            Upgrade::MissileFork => "fork",
+            Upgrade::MissileChain => "chain",
+            Upgrade::MissileSpeed => "swift",
+            Upgrade::MissileEcho => "echo",
+            Upgrade::MissileBurst => "burst",
+            Upgrade::MissileBurn => "burn",
+            Upgrade::HolyAura => "aura",
+            Upgrade::OrbitingRunes => "runes",
+            Upgrade::MaxHealth => "health",
+            Upgrade::MoveSpeed => "boots",
+            Upgrade::PickupRadius => "magnet",
+            Upgrade::Regeneration => "regen",
+            Upgrade::Dash => "dash",
+            Upgrade::Blink => "blink",
+            Upgrade::EvolveSanctum => "sanctum",
+            Upgrade::EvolvePrism => "prism",
+            Upgrade::EvolveTempest => "tempest",
+            Upgrade::MissileReturning => "returning",
+            Upgrade::MissileBackfire => "backfire",
+            Upgrade::MissileSeeking => "seeking",
+            Upgrade::MissilePrecision => "precision",
+            Upgrade::MissileFrost => "frost",
+            Upgrade::MissileKnockback => "knockback",
+            Upgrade::MissileShock => "shock",
+            Upgrade::MissileSize => "size",
+            Upgrade::SoulDrain => "drain",
+            Upgrade::Bloodrage => "rage",
+            Upgrade::Thunderstorm => "storm",
+            Upgrade::FrostNova => "nova",
+        }
+    }
+
     /// Short name shown on the level-up card.
     pub fn title(self, stats: &PlayerStats) -> String {
         match self {
@@ -1159,6 +1198,15 @@ mod tests {
         // Behind, then also left, then also right: with the forward bolt that is all four.
         assert_eq!(counts, vec![1, 2, 3]);
         assert!(stats.missile.backfire_chance() > 0.35);
+    }
+
+    #[test]
+    fn every_upgrade_has_a_distinct_icon_name() {
+        let mut names: Vec<&str> = Upgrade::ALL.iter().map(|u| u.icon_name()).collect();
+        let count = names.len();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), count, "two upgrades share an icon");
     }
 
     #[test]

@@ -105,6 +105,9 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   Autoplay never writes the save (`SaveDisabled`).
 - Sound: `audio.rs` (`PlaySound` message, rate-limited, ambient loop, `-`/`+`/`M` for volume).
   The WAV files in `assets/sounds/` are synthesized by `tools/make_sounds.py`.
+- UI look: VT323 pixel font (OFL, `assets/fonts/`, scaled by `FONT_SCALE`), one icon per upgrade
+  (`icon_<Upgrade::icon_name()>.png`, drawn in `tools/draw_sprites.py`) and a nine-slice stone frame
+  (`panel.png`, `ui::panel_image`) for the level-up cards.
 - Dev tools: `cargo run -- --autoplay 20 --enemies 2000 --screenshot out.png` plays an
   unattended run (see `autoplay.rs`). Use it to smoke-test changes and to look at the game.
 
