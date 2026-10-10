@@ -9,7 +9,7 @@ use crate::{
     assets::GameAssets,
     combat::DamageEnemy,
     enemy::{Enemy, EnemyGrid, MAX_ENEMY_RADIUS},
-    logic::stats::{AuraStats, RuneStats},
+    logic::stats::{AuraStats, MissileStats, RuneStats},
     player::Player,
     run::Stats,
     world::cursor_world_position,
@@ -49,6 +49,10 @@ const MISSILE_RADIUS: f32 = 8.0;
 const MISSILE_LIFETIME: f32 = 2.0;
 /// Angle in radians between neighbouring bolts of a volley.
 const MISSILE_SPREAD: f32 = 0.25;
+/// Angle in radians between the bolts a missile forks into.
+const FORK_SPACING: f32 = 0.8;
+/// Forked bolts burn out sooner than the original.
+const FORK_LIFETIME: f32 = 1.0;
 
 #[derive(Resource, Default)]
 struct WeaponTimers {
@@ -64,8 +68,25 @@ struct Projectile {
     damage: f32,
     pierce_left: u32,
     lifetime: f32,
+    /// Whether the bolt still splits on its next hit (Fork support).
+    can_fork: bool,
     /// Enemies already hit, so a piercing bolt damages each enemy only once.
     hit: Vec<Entity>,
+}
+
+fn spawn_projectile(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    position: Vec2,
+    projectile: Projectile,
+) {
+    commands.spawn((
+        projectile,
+        Mesh2d(assets.circle.clone()),
+        MeshMaterial2d(assets.missile.clone()),
+        Transform::from_xyz(position.x, position.y, 4.0).with_scale(Vec3::splat(MISSILE_RADIUS)),
+        DespawnOnExit(AppState::InGame),
+    ));
 }
 
 #[derive(Component)]
@@ -128,19 +149,19 @@ fn fire_missiles(
     for i in 0..count {
         let direction = Vec2::from_angle((i as f32 - middle) * MISSILE_SPREAD).rotate(base);
 
-        commands.spawn((
+        spawn_projectile(
+            &mut commands,
+            &assets,
+            origin,
             Projectile {
                 velocity: direction * stats.missile.speed,
                 damage: stats.missile.damage,
                 pierce_left: stats.missile.pierce,
                 lifetime: MISSILE_LIFETIME,
+                can_fork: stats.missile.fork_count() > 0,
                 hit: Vec::new(),
             },
-            Mesh2d(assets.circle.clone()),
-            MeshMaterial2d(assets.missile.clone()),
-            Transform::from_xyz(origin.x, origin.y, 4.0).with_scale(Vec3::splat(MISSILE_RADIUS)),
-            DespawnOnExit(AppState::InGame),
-        ));
+        );
     }
 }
 
@@ -164,6 +185,8 @@ fn move_projectiles(
 
 fn projectile_hits(
     mut commands: Commands,
+    assets: Res<GameAssets>,
+    stats: Res<Stats>,
     grid: Res<EnemyGrid>,
     enemies: Query<&Enemy>,
     mut projectiles: Query<(Entity, &Transform, &mut Projectile)>,
@@ -194,12 +217,50 @@ fn projectile_hits(
                 amount: projectile.damage,
             });
             projectile.hit.push(enemy_entity);
+
+            // Fork: split into several weaker bolts fanning out from the hit.
+            if projectile.can_fork {
+                projectile.can_fork = false;
+                fork_projectile(&mut commands, &assets, &stats, position, &projectile);
+            }
+
             if projectile.pierce_left == 0 {
                 commands.entity(entity).try_despawn();
                 break;
             }
             projectile.pierce_left -= 1;
         }
+    }
+}
+
+/// Spawns the forked bolts of `parent`, fanned symmetrically around its direction.
+fn fork_projectile(
+    commands: &mut Commands,
+    assets: &GameAssets,
+    stats: &Stats,
+    position: Vec2,
+    parent: &Projectile,
+) {
+    let count = stats.missile.fork_count();
+    let direction = parent.velocity.normalize_or_zero();
+    let speed = parent.velocity.length();
+    let middle = (count as f32 - 1.0) / 2.0;
+    for i in 0..count {
+        let angle = (i as f32 - middle) * FORK_SPACING;
+        spawn_projectile(
+            commands,
+            assets,
+            position,
+            Projectile {
+                velocity: Vec2::from_angle(angle).rotate(direction) * speed,
+                damage: parent.damage * MissileStats::FORK_DAMAGE_FACTOR,
+                pierce_left: 0,
+                lifetime: FORK_LIFETIME,
+                can_fork: false,
+                // The enemy that caused the fork must not be hit again.
+                hit: parent.hit.clone(),
+            },
+        );
     }
 }
 

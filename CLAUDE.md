@@ -39,7 +39,11 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 - Player: WASD/arrows, health, regeneration, red hurt tint, wizard hat child mesh.
 - Movement skills (`skills.rs`, rules in `logic/skills.rs`): Dash on `Space` (burst +
   i-frames), Blink on right mouse button (teleport towards cursor, range-limited).
-  Tuning constants at the top of `skills.rs`.
+  Not available at the start: they are `Upgrade::Dash` / `Upgrade::Blink`, rolled on level-up
+  and levelled by rolling them again. Per-level numbers: `DashStats` / `BlinkStats`.
+- Spell modifiers (PoE2-style supports) on the Arcane Missile: Volley (extra projectiles),
+  Piercing, Fork (first hit splits the bolt, `MissileStats::fork_level`). Design rule: every
+  modifier is an `Upgrade` with levels and caps, nothing is guaranteed, luck decides the build.
 - Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,
   squash animation on hit, death particles, cap of 1 500 enemies.

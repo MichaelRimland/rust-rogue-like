@@ -12,6 +12,66 @@ pub struct MissileStats {
     pub count: u32,
     /// How many additional enemies a bolt passes through.
     pub pierce: u32,
+    /// Fork support: 0 means the bolts do not fork.
+    pub fork_level: u32,
+}
+
+impl MissileStats {
+    pub const MAX_FORK_LEVEL: u32 = 3;
+    /// Damage of a forked bolt relative to the bolt it split from.
+    pub const FORK_DAMAGE_FACTOR: f32 = 0.6;
+
+    /// Number of bolts a missile splits into on its first hit, `0` without Fork.
+    pub fn fork_count(&self) -> u32 {
+        if self.fork_level == 0 {
+            0
+        } else {
+            self.fork_level + 1
+        }
+    }
+}
+
+/// Dash: a short invulnerable burst. Level 0 means it is not unlocked yet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DashStats {
+    pub level: u32,
+}
+
+impl DashStats {
+    pub const MAX_LEVEL: u32 = 5;
+    /// Dash speed in world units per second.
+    pub const SPEED: f32 = 900.0;
+
+    pub fn distance(&self) -> f32 {
+        120.0 + 25.0 * self.level as f32
+    }
+
+    /// How long the burst lasts, derived from distance and speed.
+    pub fn duration(&self) -> f32 {
+        self.distance() / Self::SPEED
+    }
+
+    pub fn cooldown(&self) -> f32 {
+        (2.5 - 0.3 * self.level as f32).max(1.0)
+    }
+}
+
+/// Blink: teleports towards the cursor. Level 0 means it is not unlocked yet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlinkStats {
+    pub level: u32,
+}
+
+impl BlinkStats {
+    pub const MAX_LEVEL: u32 = 5;
+
+    pub fn range(&self) -> f32 {
+        180.0 + 40.0 * self.level as f32
+    }
+
+    pub fn cooldown(&self) -> f32 {
+        (6.8 - 0.8 * self.level as f32).max(2.8)
+    }
 }
 
 /// Holy Aura: damages every enemy inside a circle around the player.
@@ -76,6 +136,8 @@ pub struct PlayerStats {
     pub missile: MissileStats,
     pub aura: AuraStats,
     pub runes: RuneStats,
+    pub dash: DashStats,
+    pub blink: BlinkStats,
 }
 
 impl Default for PlayerStats {
@@ -91,9 +153,12 @@ impl Default for PlayerStats {
                 speed: 420.0,
                 count: 1,
                 pierce: 0,
+                fork_level: 0,
             },
             aura: AuraStats { level: 0 },
             runes: RuneStats { level: 0 },
+            dash: DashStats { level: 0 },
+            blink: BlinkStats { level: 0 },
         }
     }
 }
@@ -105,12 +170,15 @@ pub enum Upgrade {
     MissileRate,
     MissileCount,
     MissilePierce,
+    MissileFork,
     HolyAura,
     OrbitingRunes,
     MaxHealth,
     MoveSpeed,
     PickupRadius,
     Regeneration,
+    Dash,
+    Blink,
 }
 
 const MIN_MISSILE_COOLDOWN: f32 = 0.25;
@@ -120,17 +188,20 @@ const MAX_MOVE_SPEED: f32 = 260.0;
 const MAX_PICKUP_RADIUS: f32 = 250.0;
 
 impl Upgrade {
-    pub const ALL: [Upgrade; 10] = [
+    pub const ALL: [Upgrade; 13] = [
         Upgrade::MissileDamage,
         Upgrade::MissileRate,
         Upgrade::MissileCount,
         Upgrade::MissilePierce,
+        Upgrade::MissileFork,
         Upgrade::HolyAura,
         Upgrade::OrbitingRunes,
         Upgrade::MaxHealth,
         Upgrade::MoveSpeed,
         Upgrade::PickupRadius,
         Upgrade::Regeneration,
+        Upgrade::Dash,
+        Upgrade::Blink,
     ];
 
     /// Health restored immediately when `MaxHealth` is picked.
@@ -143,6 +214,8 @@ impl Upgrade {
             Upgrade::MissileRate => "Arcane Missile: Haste".into(),
             Upgrade::MissileCount => "Arcane Missile: Volley".into(),
             Upgrade::MissilePierce => "Arcane Missile: Piercing".into(),
+            Upgrade::MissileFork if stats.missile.fork_level == 0 => "NEW: Fork".into(),
+            Upgrade::MissileFork => format!("Fork Lv {}", stats.missile.fork_level + 1),
             Upgrade::HolyAura if stats.aura.level == 0 => "NEW: Holy Aura".into(),
             Upgrade::HolyAura => format!("Holy Aura Lv {}", stats.aura.level + 1),
             Upgrade::OrbitingRunes if stats.runes.level == 0 => "NEW: Orbiting Runes".into(),
@@ -151,6 +224,10 @@ impl Upgrade {
             Upgrade::MoveSpeed => "Elven Boots".into(),
             Upgrade::PickupRadius => "Lodestone Amulet".into(),
             Upgrade::Regeneration => "Healing Herbs".into(),
+            Upgrade::Dash if stats.dash.level == 0 => "NEW: Dash [Space]".into(),
+            Upgrade::Dash => format!("Dash Lv {}", stats.dash.level + 1),
+            Upgrade::Blink if stats.blink.level == 0 => "NEW: Blink [Right Mouse]".into(),
+            Upgrade::Blink => format!("Blink Lv {}", stats.blink.level + 1),
         }
     }
 
@@ -161,6 +238,10 @@ impl Upgrade {
             Upgrade::MissileRate => "Missiles fire 15% faster".into(),
             Upgrade::MissileCount => "+1 missile per volley".into(),
             Upgrade::MissilePierce => "Missiles pass through +1 enemy".into(),
+            Upgrade::MissileFork if stats.missile.fork_level == 0 => {
+                "Missiles split in two after their first hit".into()
+            }
+            Upgrade::MissileFork => "Missiles split into one more bolt".into(),
             Upgrade::HolyAura if stats.aura.level == 0 => {
                 "A sacred circle burns nearby enemies".into()
             }
@@ -173,6 +254,12 @@ impl Upgrade {
             Upgrade::MoveSpeed => "+10% movement speed".into(),
             Upgrade::PickupRadius => "+30% experience pickup range".into(),
             Upgrade::Regeneration => "Regenerate +0.5 health per second".into(),
+            Upgrade::Dash if stats.dash.level == 0 => {
+                "Burst forward and ignore damage while dashing".into()
+            }
+            Upgrade::Dash => "Dash farther, shorter cooldown".into(),
+            Upgrade::Blink if stats.blink.level == 0 => "Teleport towards the cursor".into(),
+            Upgrade::Blink => "Blink farther, shorter cooldown".into(),
         }
     }
 
@@ -182,6 +269,9 @@ impl Upgrade {
             Upgrade::MissileRate => stats.missile.cooldown > MIN_MISSILE_COOLDOWN + f32::EPSILON,
             Upgrade::MissileCount => stats.missile.count < MAX_MISSILE_COUNT,
             Upgrade::MissilePierce => stats.missile.pierce < MAX_MISSILE_PIERCE,
+            Upgrade::MissileFork => stats.missile.fork_level < MissileStats::MAX_FORK_LEVEL,
+            Upgrade::Dash => stats.dash.level < DashStats::MAX_LEVEL,
+            Upgrade::Blink => stats.blink.level < BlinkStats::MAX_LEVEL,
             Upgrade::HolyAura => stats.aura.level < AuraStats::MAX_LEVEL,
             Upgrade::OrbitingRunes => stats.runes.level < RuneStats::MAX_LEVEL,
             Upgrade::MoveSpeed => stats.move_speed < MAX_MOVE_SPEED,
@@ -202,6 +292,14 @@ impl Upgrade {
             }
             Upgrade::MissilePierce => {
                 stats.missile.pierce = (stats.missile.pierce + 1).min(MAX_MISSILE_PIERCE)
+            }
+            Upgrade::MissileFork => {
+                stats.missile.fork_level =
+                    (stats.missile.fork_level + 1).min(MissileStats::MAX_FORK_LEVEL)
+            }
+            Upgrade::Dash => stats.dash.level = (stats.dash.level + 1).min(DashStats::MAX_LEVEL),
+            Upgrade::Blink => {
+                stats.blink.level = (stats.blink.level + 1).min(BlinkStats::MAX_LEVEL)
             }
             Upgrade::HolyAura => {
                 stats.aura.level = (stats.aura.level + 1).min(AuraStats::MAX_LEVEL)
@@ -296,6 +394,44 @@ mod tests {
             assert!(guard < 100, "MissileRate never maxes out");
         }
         assert!(stats.missile.cooldown >= MIN_MISSILE_COOLDOWN);
+    }
+
+    #[test]
+    fn movement_skills_and_fork_start_locked_and_level_up() {
+        let mut stats = PlayerStats::default();
+        assert_eq!(stats.dash.level, 0);
+        assert_eq!(stats.blink.level, 0);
+        assert_eq!(stats.missile.fork_count(), 0);
+
+        Upgrade::Dash.apply(&mut stats);
+        Upgrade::Blink.apply(&mut stats);
+        Upgrade::MissileFork.apply(&mut stats);
+        assert_eq!(stats.dash.level, 1);
+        assert_eq!(stats.blink.level, 1);
+        assert_eq!(stats.missile.fork_count(), 2);
+
+        Upgrade::MissileFork.apply(&mut stats);
+        assert_eq!(stats.missile.fork_count(), 3);
+    }
+
+    #[test]
+    fn higher_skill_levels_are_stronger_but_cooldowns_have_a_floor() {
+        let mut low = PlayerStats::default();
+        let mut high = PlayerStats::default();
+        Upgrade::Dash.apply(&mut low);
+        Upgrade::Blink.apply(&mut low);
+        for _ in 0..DashStats::MAX_LEVEL {
+            Upgrade::Dash.apply(&mut high);
+            Upgrade::Blink.apply(&mut high);
+        }
+        assert!(high.dash.distance() > low.dash.distance());
+        assert!(high.blink.range() > low.blink.range());
+        assert!(high.dash.cooldown() < low.dash.cooldown());
+        assert!(high.blink.cooldown() < low.blink.cooldown());
+        assert!(high.dash.cooldown() >= 1.0);
+        assert!(high.blink.cooldown() >= 2.8);
+        assert!(!Upgrade::Dash.is_available(&high));
+        assert!(!Upgrade::Blink.is_available(&high));
     }
 
     #[test]

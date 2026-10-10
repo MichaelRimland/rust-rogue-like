@@ -1,18 +1,15 @@
 //! Timing and geometry rules for the movement skills (dash and blink).
 
-/// A skill cooldown that starts out ready.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A skill cooldown that starts out ready. The duration is passed when the skill fires,
+/// so it can change as the skill levels up.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Cooldown {
-    duration: f32,
     remaining: f32,
 }
 
 impl Cooldown {
-    pub fn new(duration: f32) -> Self {
-        Self {
-            duration,
-            remaining: 0.0,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -28,12 +25,13 @@ impl Cooldown {
         self.remaining
     }
 
-    /// Starts the cooldown if the skill is ready. Returns whether it fired.
-    pub fn trigger(&mut self) -> bool {
+    /// Starts a cooldown of `duration` seconds if the skill is ready.
+    /// Returns whether it fired.
+    pub fn trigger(&mut self, duration: f32) -> bool {
         if !self.is_ready() {
             return false;
         }
-        self.remaining = self.duration;
+        self.remaining = duration;
         true
     }
 }
@@ -57,20 +55,20 @@ mod tests {
 
     #[test]
     fn cooldown_starts_ready_and_blocks_until_elapsed() {
-        let mut cooldown = Cooldown::new(2.0);
-        assert!(cooldown.trigger());
-        assert!(!cooldown.trigger());
+        let mut cooldown = Cooldown::new();
+        assert!(cooldown.trigger(2.0));
+        assert!(!cooldown.trigger(2.0));
         cooldown.tick(1.5);
         assert!(!cooldown.is_ready());
         assert!((cooldown.remaining() - 0.5).abs() < 1e-6);
         cooldown.tick(0.5);
-        assert!(cooldown.trigger());
+        assert!(cooldown.trigger(2.0));
     }
 
     #[test]
     fn cooldown_never_goes_negative() {
-        let mut cooldown = Cooldown::new(1.0);
-        cooldown.trigger();
+        let mut cooldown = Cooldown::new();
+        cooldown.trigger(1.0);
         cooldown.tick(10.0);
         assert_eq!(cooldown.remaining(), 0.0);
     }

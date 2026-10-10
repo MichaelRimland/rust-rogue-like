@@ -7,7 +7,7 @@ use crate::{
     AppState,
     logic::skills::Cooldown,
     player::{Health, Player},
-    run::{RunStats, Xp},
+    run::{RunStats, Stats, Xp},
     skills::MovementSkills,
 };
 
@@ -111,7 +111,11 @@ fn spawn_hud(mut commands: Commands) {
 }
 
 /// Cooldown readout, e.g. `Dash [Space] ready   Blink [RMB] 2.4s`.
-fn update_skill_text(skills: Res<MovementSkills>, mut text: Single<&mut Text, With<SkillText>>) {
+fn update_skill_text(
+    stats: Res<Stats>,
+    skills: Res<MovementSkills>,
+    mut text: Single<&mut Text, With<SkillText>>,
+) {
     let readout = |name: &str, key: &str, cooldown: &Cooldown| {
         if cooldown.is_ready() {
             format!("{name} [{key}] ready")
@@ -119,11 +123,15 @@ fn update_skill_text(skills: Res<MovementSkills>, mut text: Single<&mut Text, Wi
             format!("{name} [{key}] {:.1}s", cooldown.remaining())
         }
     };
-    text.0 = format!(
-        "{}\n{}",
-        readout("Dash", "Space", &skills.dash),
-        readout("Blink", "RMB", &skills.blink)
-    );
+    // Only skills the player has unlocked are listed.
+    let mut lines = Vec::new();
+    if stats.dash.level > 0 {
+        lines.push(readout("Dash", "Space", &skills.dash));
+    }
+    if stats.blink.level > 0 {
+        lines.push(readout("Blink", "RMB", &skills.blink));
+    }
+    text.0 = lines.join("\n");
 }
 
 fn update_hud(

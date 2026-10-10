@@ -13,7 +13,9 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 - **Survivor-style combat** with hundreds of enemies on screen at once
 - **Three spells** that stack into builds: Arcane Missile (fires automatically towards the mouse cursor, piercing volleys),
   Holy Aura (damage field) and Orbiting Runes
-- **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps
+- **Level-up choices**: pick one of three rolled upgrades, weapons and passives with caps.
+  Movement skills (Dash, Blink) and spell modifiers (Fork, extra projectiles, piercing) are
+  not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
 - **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres), tougher monsters
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
 - Runs natively (Windows, macOS, Linux) and in the browser via WebAssembly
@@ -24,8 +26,8 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
 | --- | --- |
 | `WASD` / arrow keys | Move |
 | Mouse | Aim the Arcane Missile (it fires automatically) |
-| `Space` | Dash: short burst in the movement direction, invulnerable while dashing |
-| Right mouse button | Blink: teleport towards the cursor (limited range, longer cooldown) |
+| `Space` | Dash: short burst in the movement direction, invulnerable while dashing (unlocked via level-up) |
+| Right mouse button | Blink: teleport towards the cursor, limited range (unlocked via level-up) |
 | `1` `2` `3` | Choose an upgrade |
 | `Esc` / `P` | Pause |
 | `Enter` / `Space` | Start / restart |

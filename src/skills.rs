@@ -8,8 +8,12 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use crate::{
     AppState, GameSet,
     assets::GameAssets,
-    logic::skills::{Cooldown, limit_distance},
+    logic::{
+        skills::{Cooldown, limit_distance},
+        stats::DashStats,
+    },
     player::{PLAYER_RADIUS, Player, input_direction},
+    run::Stats,
     world::cursor_world_position,
 };
 
@@ -30,11 +34,6 @@ impl Plugin for SkillsPlugin {
     }
 }
 
-const DASH_SPEED: f32 = 900.0;
-const DASH_DURATION: f32 = 0.18;
-const DASH_COOLDOWN: f32 = 1.5;
-const BLINK_RANGE: f32 = 320.0;
-const BLINK_COOLDOWN: f32 = 4.0;
 /// Invulnerability granted after a blink, in seconds.
 const BLINK_INVULNERABLE_SECS: f32 = 0.3;
 /// Distance between the afterimages left along a blink path.
@@ -53,8 +52,8 @@ pub struct MovementSkills {
 impl Default for MovementSkills {
     fn default() -> Self {
         Self {
-            dash: Cooldown::new(DASH_COOLDOWN),
-            blink: Cooldown::new(BLINK_COOLDOWN),
+            dash: Cooldown::new(),
+            blink: Cooldown::new(),
             dash_remaining: 0.0,
             dash_direction: Vec2::X,
             invulnerable: 0.0,
@@ -65,7 +64,7 @@ impl Default for MovementSkills {
 impl MovementSkills {
     /// Velocity while a dash is in progress; it replaces the player's normal movement.
     pub fn dash_velocity(&self) -> Option<Vec2> {
-        (self.dash_remaining > 0.0).then(|| self.dash_direction * DASH_SPEED)
+        (self.dash_remaining > 0.0).then(|| self.dash_direction * DashStats::SPEED)
     }
 
     /// Whether contact damage is currently ignored.
@@ -97,6 +96,7 @@ fn trigger_skills(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     assets: Res<GameAssets>,
+    stats: Res<Stats>,
     mut skills: ResMut<MovementSkills>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -104,18 +104,27 @@ fn trigger_skills(
 ) {
     let (mut transform, player) = player.into_inner();
 
-    if keys.just_pressed(KeyCode::Space) && skills.dash.trigger() {
+    // Skills are unlocked through level-up upgrades.
+    if stats.dash.level > 0
+        && keys.just_pressed(KeyCode::Space)
+        && skills.dash.trigger(stats.dash.cooldown())
+    {
+        let duration = stats.dash.duration();
         skills.dash_direction = input_direction(&keys).unwrap_or(player.facing);
-        skills.dash_remaining = DASH_DURATION;
-        skills.invulnerable = skills.invulnerable.max(DASH_DURATION);
+        skills.dash_remaining = duration;
+        skills.invulnerable = skills.invulnerable.max(duration);
     }
 
-    if mouse.just_pressed(MouseButton::Right) && skills.blink.trigger() {
+    if stats.blink.level > 0
+        && mouse.just_pressed(MouseButton::Right)
+        && skills.blink.trigger(stats.blink.cooldown())
+    {
+        let range = stats.blink.range();
         let origin = transform.translation.truncate();
         let (camera, camera_transform) = *camera;
         let aim = cursor_world_position(&window, camera, camera_transform)
-            .unwrap_or(origin + player.facing * BLINK_RANGE);
-        let target = Vec2::from(limit_distance(origin.into(), aim.into(), BLINK_RANGE));
+            .unwrap_or(origin + player.facing * range);
+        let target = Vec2::from(limit_distance(origin.into(), aim.into(), range));
 
         let steps = (origin.distance(target) / AFTERIMAGE_SPACING) as u32;
         for step in 0..=steps {
