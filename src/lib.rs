@@ -12,6 +12,7 @@ mod assets;
 mod bench;
 mod combat;
 mod enemy;
+mod enemy_fire;
 mod player;
 mod progression;
 mod run;
@@ -69,6 +70,7 @@ impl Plugin for GamePlugin {
                 run::RunPlugin,
                 player::PlayerPlugin,
                 enemy::EnemyPlugin,
+                enemy_fire::EnemyFirePlugin,
                 weapons::WeaponsPlugin,
                 combat::CombatPlugin,
                 progression::ProgressionPlugin,

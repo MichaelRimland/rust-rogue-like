@@ -29,8 +29,10 @@ pub struct GameAssets {
     goblin: [Handle<Image>; 2],
     skeleton: [Handle<Image>; 2],
     ogre: [Handle<Image>; 2],
+    archer: [Handle<Image>; 2],
 
     pub missile: Handle<Image>,
+    pub enemy_bolt: Handle<Image>,
     pub rune: Handle<Image>,
     gems: [Handle<Image>; 3],
     /// Decoration sprites paired with their spawn weight.
@@ -38,7 +40,7 @@ pub struct GameAssets {
 
     pub aura: Handle<ColorMaterial>,
     /// Colors of the particles an enemy kind bursts into.
-    particles: [Handle<ColorMaterial>; 3],
+    particles: [Handle<ColorMaterial>; 4],
 }
 
 impl GameAssets {
@@ -47,6 +49,7 @@ impl GameAssets {
             EnemyKind::Goblin => self.goblin.clone(),
             EnemyKind::Skeleton => self.skeleton.clone(),
             EnemyKind::Ogre => self.ogre.clone(),
+            EnemyKind::Archer => self.archer.clone(),
         }
     }
 
@@ -55,6 +58,7 @@ impl GameAssets {
             EnemyKind::Goblin => self.particles[0].clone(),
             EnemyKind::Skeleton => self.particles[1].clone(),
             EnemyKind::Ogre => self.particles[2].clone(),
+            EnemyKind::Archer => self.particles[3].clone(),
         }
     }
 
@@ -85,8 +89,10 @@ fn create_assets(
         goblin: frames("goblin"),
         skeleton: frames("skeleton"),
         ogre: frames("ogre"),
+        archer: frames("archer"),
 
         missile: sprite("missile"),
+        enemy_bolt: sprite("enemy_bolt"),
         rune: sprite("rune"),
         gems: [
             sprite("gem_small"),
@@ -106,6 +112,7 @@ fn create_assets(
             mat(Color::srgb(0.30, 0.50, 0.27)),
             mat(Color::srgb(0.83, 0.80, 0.82)),
             mat(Color::srgb(0.48, 0.29, 0.16)),
+            mat(Color::srgb(0.48, 0.11, 0.15)),
         ],
     };
     commands.insert_resource(assets);

@@ -315,6 +315,59 @@ def ogre(frame: int) -> Image.Image:
     return c.image()
 
 
+def archer(frame: int) -> Image.Image:
+    c = Canvas(SIZE)
+    colors = {
+        "a": rgb("#3a0f1a"), "b": rgb("#7a1c26"), "c": rgb("#c02f2f"), "d": rgb("#ec6a4a"),
+        "f": rgb("#d4cdd0"), "g": rgb("#a8a0ae"), "h": rgb("#7d7589"), "i": rgb("#2b2438"),
+        "e": rgb("#ffe27a"), "q": rgb("#1a1626"), "k": rgb("#7a4a2a"), "j": rgb("#4a2c1e"),
+        "x": rgb("#d4cdd0"),
+    }
+    darker = {"c": "b", "b": "a", "d": "c", "f": "g", "g": "h"}
+    rows = [
+        "..............bb",  # 6 hood tip
+        ".............cbb",
+        "............ccbb",
+        "...........ccbbb",
+        "..........ccbbbb",
+        "..........cbiiii",  # 11 hood opening
+        "..........cbiffg",  # bone mask
+        "..........cbifeg",  # glowing eye
+        "..........cbighh",
+        ".........ccbbiii",
+        "........ccbbbbbb",  # 16 shoulders
+        ".......ccbbbbbbb",
+        ".......cbbbbbbbb",
+        "......ccbbbbbbbb",
+        "......cbbbbbbbbb",
+        "......ccbbbbabbb",
+        ".....ccbbbbbabbb",
+        ".....ccbbbbbbbbb",
+        ".....cbbbabbbbbb",
+        ".....aabbaabbaab",  # 25 ragged hem
+        "........qqq.....",  # 26 boots
+        "........qqq.....",
+    ]
+    draw_half_mirrored(c, rows, colors, darker, top=6)
+    # Short bow in the right hand: wooden limb on the right, bone string on the left.
+    for x, y in ((27, 11), (28, 12), (29, 13), (29, 14), (30, 15), (30, 16), (30, 17),
+                 (30, 18), (30, 19), (29, 20), (29, 21), (28, 22), (27, 23)):
+        c.put(x, y, colors["k"])
+    for y in range(12, 23):
+        c.put(27, y, colors["x"])
+    draw_patch(c, 25, 17, ["ff"], colors)
+    if frame == 1:
+        c = stride(c, 26, 27)
+    return c.image()
+
+
+def enemy_bolt() -> Image.Image:
+    c = Canvas(SMALL)
+    ramp = [rgb("#3a0f1a"), rgb("#7a1c26"), rgb("#c02f2f"), rgb("#ec6a4a"), rgb("#ffe27a")]
+    ellipse(c, 8, 8, 5, 5, ramp)
+    return c.image()
+
+
 def missile() -> Image.Image:
     c = Canvas(SMALL)
     colors = {
@@ -421,7 +474,10 @@ SPRITES = {
     "skeleton_1": lambda: skeleton(1),
     "ogre_0": lambda: ogre(0),
     "ogre_1": lambda: ogre(1),
+    "archer_0": lambda: archer(0),
+    "archer_1": lambda: archer(1),
     "missile": missile,
+    "enemy_bolt": enemy_bolt,
     "gem_small": lambda: gem(3, 4, [rgb("#123a44"), rgb("#2a7a80"), rgb("#62c9c0"), rgb("#f2ecdf")]),
     "gem_medium": lambda: gem(4, 5, [rgb("#8a5a12"), rgb("#e0a830"), rgb("#ffe27a"), rgb("#f2ecdf")]),
     "gem_large": lambda: gem(5, 6, [rgb("#2c1a4d"), rgb("#5b3a9e"), rgb("#8f6af0"), rgb("#c9a8ff")]),

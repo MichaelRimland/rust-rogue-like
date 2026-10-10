@@ -9,7 +9,7 @@ use crate::{
     animation::WalkAnimation,
     assets::{GameAssets, SPRITE_SCALE},
     logic::{
-        enemies::{EnemyKind, pick_enemy_kind},
+        enemies::{EnemyKind, RangedAttack, pick_enemy_kind},
         progression::{enemy_health_multiplier, spawn_batch_size, spawn_interval},
         spatial::SpatialGrid,
     },
@@ -56,6 +56,9 @@ pub struct Enemy {
     pub xp: u32,
     /// Remaining seconds of the "got hit" squash animation.
     pub hit_flash: f32,
+    pub ranged: Option<RangedAttack>,
+    /// Seconds until the next shot (ranged enemies only).
+    pub shoot_timer: f32,
 }
 
 /// All enemies bucketed by position. Rebuilt every frame in [`GameSet::Spatial`].
@@ -131,6 +134,11 @@ pub(crate) fn spawn_enemy(
             contact_dps: base.contact_dps,
             xp: base.xp,
             hit_flash: 0.0,
+            ranged: base.ranged,
+            // Stagger first shots so a group of archers does not fire in unison.
+            shoot_timer: base.ranged.map_or(0.0, |ranged| {
+                ranged.cooldown * (0.4 + 0.1 * (phase % 6) as f32)
+            }),
         },
         Sprite::from_image(frames[0].clone()),
         WalkAnimation::new(frames, phase),
@@ -152,7 +160,12 @@ fn move_enemies(
 
     for (entity, mut transform, mut sprite, enemy) in &mut enemies {
         let position = transform.translation.truncate();
-        let to_player = (target - position).normalize_or_zero();
+        let offset = target - position;
+        let to_player = offset.normalize_or_zero();
+        // Ranged enemies hold their preferred distance instead of closing in.
+        let approach = enemy
+            .ranged
+            .map_or(1.0, |ranged| ranged.approach_factor(offset.length()));
 
         let mut push = Vec2::ZERO;
         let neighbour_radius = enemy.radius + MAX_ENEMY_RADIUS;
@@ -173,7 +186,8 @@ fn move_enemies(
             },
         );
 
-        let velocity = to_player * enemy.speed + push * enemy.speed * SEPARATION_STRENGTH * 0.25;
+        let velocity =
+            to_player * enemy.speed * approach + push * enemy.speed * SEPARATION_STRENGTH * 0.25;
         let delta = velocity * dt;
         transform.translation.x += delta.x;
         transform.translation.y += delta.y;

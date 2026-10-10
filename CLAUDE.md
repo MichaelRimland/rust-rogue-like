@@ -52,7 +52,9 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   enemy), Spell Echo (volley repeats), Impact Burst (explosion on hit), Searing Touch (burn).
   Levels and caps live in `MissileStats`; behavior in `weapons.rs`. Design rule: every
   modifier is an `Upgrade` with levels and caps, nothing is guaranteed, luck decides the build.
-- Enemies: Goblin (from 0 s), Skeleton (from 45 s), Ogre (from 120 s). Spawn in waves on
+- Enemies: Goblin (from 0 s), Skeleton (from 45 s), Archer (from 75 s, keeps its distance and
+  shoots slow bolts that must be dodged; a dash passes through them, see `enemy_fire.rs`),
+  Ogre (from 120 s). Spawn in waves on
   a ring around the player, chase with separation, get wrapped back when too far away,
   squash animation on hit, death particles, cap of 500 enemies (the F4 stress test bypasses it).
 - Weapons: Arcane Missile (start weapon, fires towards the mouse cursor, volley count, pierce),
@@ -82,6 +84,7 @@ src/world.rs        camera spawn/follow, wrapping decor
 src/player.rs       Player, Health, movement, regen, hurt tint, death check
 src/skills.rs       MovementSkills (dash, blink), afterimages, i-frames
 src/enemy.rs        Enemy, EnemyGrid (spatial hash), spawning, steering, wrapping, hit squash
+src/enemy_fire.rs   EnemyBolt: projectiles of ranged enemies (shooting, flight, hits on the player)
 src/weapons.rs      missiles, aura, runes (fire + hit detection)
 src/combat.rs       DamageEnemy message, apply_damage (kills, gems, particles), contact damage
 src/progression.rs  XpGem, PendingLevelUps, LevelUpChoices, choose_upgrade

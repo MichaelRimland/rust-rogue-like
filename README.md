@@ -19,7 +19,7 @@ aim with the mouse, survive the ever-growing hordes, and combine upgrades into a
   Movement skills (Dash, Blink) and spell modifiers (Fork, Chain, Spell Echo, Impact Burst,
   Searing Touch, extra projectiles, piercing) are
   not given upfront: you need luck on the roll, and every pick can be levelled by rolling it again
-- **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres), tougher monsters
+- **Difficulty that scales over time**: faster waves, new enemy types (goblins, skeletons, ogres, archers whose bolts you have to dodge), tougher monsters
 - **Seeded runs**: every run is driven by one seed shown on the game over screen
 - Runs natively (Windows, macOS, Linux) and in the browser via WebAssembly
 
@@ -88,6 +88,7 @@ src/
 ├── player.rs         movement, health, regeneration, death
 ├── skills.rs         movement skills: dash and blink
 ├── enemy.rs          spawning, steering with separation, spatial grid
+├── enemy_fire.rs     projectiles shot by ranged enemies
 ├── weapons.rs        Arcane Missile, Holy Aura, Orbiting Runes
 ├── combat.rs         damage messages, kills, loot, particles, contact damage
 ├── progression.rs    XP gems, level-ups, upgrade selection
