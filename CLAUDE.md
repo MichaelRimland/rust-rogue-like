@@ -83,7 +83,7 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   player until `round_quota` kills, then the rest die and doors open. Boss rooms pick one of
   two bosses per floor (`floor_boss_pool`); floor 3 always ends with the Hollow King (phases,
   spiral, charge, own sprite). Dev flags: `--floor N --boss` jumps to a boss room.
-- Biomes: `Biome` / `biome_for_floor` in `logic/dungeon.rs` (forest, crypt, inferno). Each has
+- Biomes: `Biome` / `biome_for_floor` in `logic/dungeon.rs` (floor 1 crypt, floor 2 forest, floor 3 inferno; endless is forest). Each has
   its own ground tile, decoration set (`assets.rs`) and wall colors (`spawn_walls`);
   `sync_biome` in `world.rs` re-dresses the world when the floor changes. Endless stays forest.
 - Meta-progression: runs earn soul shards, spent at the shrine (main menu key 3) on permanent

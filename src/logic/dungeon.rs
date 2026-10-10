@@ -145,8 +145,8 @@ impl Biome {
 /// Every floor gets its own look, so a run travels through different places.
 pub fn biome_for_floor(floor: u32) -> Biome {
     match floor {
-        0 | 1 => Biome::Forest,
-        2 => Biome::Crypt,
+        0 | 1 => Biome::Crypt,
+        2 => Biome::Forest,
         _ => Biome::Inferno,
     }
 }
@@ -498,7 +498,8 @@ mod tests {
                 assert_ne!(a, b);
             }
         }
-        assert_eq!(biome_for_floor(1), Biome::Forest);
+        assert_eq!(biome_for_floor(1), Biome::Crypt);
+        assert_eq!(biome_for_floor(2), Biome::Forest);
         assert_eq!(Biome::default(), Biome::Forest);
         assert_eq!(Biome::ALL.len(), 3);
     }
