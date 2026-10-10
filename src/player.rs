@@ -72,6 +72,19 @@ fn spawn_player(mut commands: Commands, assets: Res<GameAssets>, stats: Res<Stat
         walk,
         Transform::from_xyz(0.0, 0.0, 3.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
+        children![
+            // A faint warm light on the ground around the wizard, and a shadow.
+            (
+                Mesh2d(assets.circle.clone()),
+                MeshMaterial2d(assets.glow.clone()),
+                Transform::from_xyz(0.0, -4.0, -0.1).with_scale(Vec3::new(30.0, 24.0, 1.0)),
+            ),
+            (
+                Mesh2d(assets.circle.clone()),
+                MeshMaterial2d(assets.shadow.clone()),
+                Transform::from_xyz(0.0, -13.0, -0.05).with_scale(Vec3::new(9.0, 3.6, 1.0)),
+            ),
+        ],
     ));
 }
 

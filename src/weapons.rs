@@ -28,6 +28,8 @@ impl Plugin for WeaponsPlugin {
                     move_projectiles,
                     fade_bursts,
                     fade_flashes,
+                    projectile_trails,
+                    fade_trail_dots,
                     update_aura_visual,
                     sync_runes,
                     orbit_runes,
@@ -78,6 +80,10 @@ const SEEK_RANGE: f32 = 320.0;
 const KNOCKBACK_SECS: f32 = 0.15;
 /// How long a lightning strike stays visible.
 const FLASH_SECS: f32 = 0.18;
+/// Bolts leave a dot this often, and this long-lived; only the first few bolts do.
+const TRAIL_INTERVAL: f32 = 0.035;
+const TRAIL_SECS: f32 = 0.22;
+const MAX_TRAILING_BOLTS: usize = 60;
 
 #[derive(Resource, Default)]
 struct WeaponTimers {
@@ -113,6 +119,12 @@ struct Projectile {
     seek_turn: f32,
     /// Enemies already hit, so a piercing bolt damages each enemy only once.
     hit: Vec<Entity>,
+}
+
+/// A fading dot left behind by a flying bolt.
+#[derive(Component)]
+struct TrailDot {
+    lifetime: f32,
 }
 
 /// A short-lived rectangle, used for lightning strikes.
@@ -681,6 +693,50 @@ fn thunderstorm(
                 DespawnOnExit(AppState::InGame),
             ));
         }
+    }
+}
+
+/// Leaves a short trail of fading dots behind flying bolts.
+fn projectile_trails(
+    mut commands: Commands,
+    time: Res<Time>,
+    assets: Res<GameAssets>,
+    mut cooldown: Local<f32>,
+    projectiles: Query<(&Transform, &Projectile)>,
+) {
+    *cooldown -= time.delta_secs();
+    if *cooldown > 0.0 {
+        return;
+    }
+    *cooldown = TRAIL_INTERVAL;
+    for (transform, projectile) in projectiles.iter().take(MAX_TRAILING_BOLTS) {
+        let size = 2.6 * projectile.radius / MISSILE_RADIUS;
+        commands.spawn((
+            TrailDot {
+                lifetime: TRAIL_SECS,
+            },
+            Mesh2d(assets.circle.clone()),
+            MeshMaterial2d(assets.trail.clone()),
+            Transform::from_xyz(transform.translation.x, transform.translation.y, 3.9)
+                .with_scale(Vec3::splat(size)),
+            DespawnOnExit(AppState::InGame),
+        ));
+    }
+}
+
+fn fade_trail_dots(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut dots: Query<(Entity, &mut Transform, &mut TrailDot)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut transform, mut dot) in &mut dots {
+        dot.lifetime -= dt;
+        if dot.lifetime <= 0.0 {
+            commands.entity(entity).try_despawn();
+            continue;
+        }
+        transform.scale *= 1.0 - 4.0 * dt;
     }
 }
 

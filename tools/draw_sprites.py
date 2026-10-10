@@ -241,40 +241,45 @@ def skeleton(frame: int) -> Image.Image:
     }
     darker = {"w": "x", "x": "y", "y": "z", "o": "r", "r": "s"}
     rows = [
-        "..........xwwwww",  # 7 skull
+        "..........xwwwww",  # 0 skull
         ".........xwwwwww",
         "........xwwwwwww",
-        "........xwwetewe",  # 10 eye sockets
+        "........xwwetewe",  # 3 eye sockets
         "........xwweeewe",
         "........xywwwwwe",
-        "........yxwzwzwz",  # 13 teeth
+        "........yxwzwzwz",  # 6 teeth
         ".........yyxxxxx",
-        "..............zy",  # 15 neck
-        "........oorxxxxx",  # 16 pauldron + ribs
+        "..............zy",  # 8 neck
+        "........oorxxxxx",  # 9 pauldron and collar bone
         "........rrswwwwx",
-        "........seeeeeex",
-        "........swwwwwwx",
-        "........seeeeeex",
-        ".......sssrrrrrr",
-        "..........xwx...",  # 22 legs
+        ".........seeeeex",  # 11 ribs
+        ".........swwwwwx",
+        ".........seeeeex",
+        ".........swwwwwx",
+        "..........sxrrrr",  # 15 narrow pelvis with a rag
+        "..........xwx...",  # 16 legs
         "..........xwx...",
         "..........yzy...",
         "..........xwx...",
         ".........xxxxx..",
     ]
-    draw_half_mirrored(c, rows, colors, darker, top=7)
-    # A notched, rusty sword.
-    draw_patch(c, 25, 9, ["b", "b", "o", "b", "b", "o", "b", "b", "o", "b", "b", "h", "h"], colors)
+    draw_half_mirrored(c, rows, colors, darker, top=5)
+    # Arm bones hang from the shoulder pads; the right hand holds a notched, rusty sword.
+    for y in range(15, 24):
+        c.put(7, y, colors["x"])
+    c.put(8, 14, colors["y"])
+    draw_patch(c, 6, 24, ["xw"], colors)
+    for y, ch in zip(range(7, 19), "bbobbobbobbh"):
+        c.put(25, y, colors[ch])
+    draw_patch(c, 24, 19, ["xx"], colors)
     c.put(24, 21, colors["h"])
     c.put(26, 21, colors["h"])
-    draw_patch(c, 24, 19, ["xx"], colors)
-    # Hanging bone arm on the left, lit side.
-    for y in range(18, 27):
-        c.put(7, y, colors["x"])
-    draw_patch(c, 6, 27, ["xw"], colors)
-    c.put(8, 18, colors["y"])
+    # A crack across the skull and a missing tooth keep it from looking mirrored.
+    for x, y in ((13, 8), (14, 9), (14, 10)):
+        c.put(x, y, colors["z"])
+    c.put(20, 11, colors["e"])
     if frame == 1:
-        c = stride(c, 22, 26)
+        c = stride(c, 21, 25)
     return c.image()
 
 
@@ -288,29 +293,32 @@ def ogre(frame: int) -> Image.Image:
     }
     darker = {"d": "c", "c": "b", "b": "a", "q": "p", "R": "r", "w": "y"}
     rows = [
-        ".........ccbbbbb",  # 4 head
-        "........cccbbbbb",
-        "........cbbRrbbb",  # 6 eyes
+        "........w.......",  # 0 horn
+        "........ww......",
+        ".........wcbbbbb",  # 2 head
+        "........wcccbbbb",
         "........cbbbbbbb",
-        "........cbwbbbwb",  # 8 tusks
-        ".........abbaaaa",
-        ".....cccbbbbbbbb",  # 10 shoulders
-        "....cccbabbbbbbb",
-        "...ccbbbabbbbppb",
-        "...cbbbbabbbppqb",
-        "...cbbbbabbbpqqb",
-        "...cbbbbabbbbbbb",
-        "..ccbbbbabbbbbbb",
-        "..ccbbbbabbbbbbb",
+        "........cbRrbbbb",  # 5 eyes
+        "........cbbbbbbb",
+        "........cbwbbbab",  # 7 tusk and mouth
+        ".........cbaaaaa",
+        "......cccbbbbbbb",  # 9 neck and shoulders
+        "....cccccbbbbbbb",
+        "...cccbbbbbbbbbb",
+        "...ccbbbbbbppbbb",
+        "..ccbbbbbbbbppqb",
+        "..cbbbbbbbbbpqqb",
+        "..cbbbaabbbbbbbb",
+        "...cbbbabbbbbbbb",
+        "...cbbbbbbbbbbbb",
         "...pppppppppqqqy",  # 18 belt
-        "..cbbbbbbbbbbbbb",
-        "....pppppppppppp",  # 20 loincloth
+        "...pqpppppppqppp",  # 19 loincloth
         "....ppqppppqpppp",
-        "......cbbba.....",  # 22 legs
-        "......cbbba.....",
-        "......cbbba.....",
-        "....aaaaaaa.....",
-        "....aaaaaaa.....",
+        ".....cbbbbaa....",  # 21 legs
+        ".....cbbbbba....",
+        ".....cbbbbba....",
+        "....aaaaaaaa....",  # 24 feet
+        "....aaaaaaaa....",
     ]
     draw_half_mirrored(c, rows, colors, darker, top=4)
     # Spiked club in the right hand.
@@ -324,8 +332,13 @@ def ogre(frame: int) -> Image.Image:
         c.put(26, y, colors["y"])
         c.put(31, y, colors["z"])
     draw_patch(c, 25, 17, ["cc", "bb"], colors)
+    # Scars, a broken horn and a patch of stitched hide.
+    for x, y in ((19, 9), (20, 10), (21, 11)):
+        c.put(x, y, colors["a"])
+    c.pixels.pop((23, 5), None)
+    draw_patch(c, 20, 17, ["qq", "qp"], colors)
     if frame == 1:
-        c = stride(c, 22, 26)
+        c = stride(c, 25, 29)
     return c.image()
 
 
@@ -375,6 +388,11 @@ def archer(frame: int) -> Image.Image:
     for y in range(12, 23):
         c.put(27, y, colors["x"])
     draw_patch(c, 25, 17, ["ff"], colors)
+    # A quiver full of arrows on the back, and a torn hood.
+    draw_patch(c, 8, 17, ["e.", "kk", "kk", "kk", "k."], colors)
+    c.put(9, 16, colors["x"])
+    c.put(10, 15, colors["x"])
+    c.pixels.pop((20, 7), None)
     if frame == 1:
         c = stride(c, 26, 27)
     return c.image()
@@ -714,6 +732,105 @@ def decor_tuft() -> Image.Image:
     return c.image(outline=False)
 
 
+# --------------------------------------------------------------------------- polish
+
+CHARACTER_PREFIXES = ("wizard", "goblin", "skeleton", "ogre", "archer", "bat", "warlock", "king")
+# Bright accent colors (eyes, gold, magic) are left alone by the texture pass.
+PROTECTED = {
+    rgb(c)
+    for c in ("#e0a830", "#ffe27a", "#62c9c0", "#ec6a4a", "#c9a8ff", "#f2ecdf", "#8f6af0")
+}
+
+
+def nearest_palette(color: tuple[float, float, float]) -> tuple[int, int, int]:
+    return min(
+        PALETTE,
+        key=lambda p: (p[0] - color[0]) ** 2 + (p[1] - color[1]) ** 2 + (p[2] - color[2]) ** 2,
+    )
+
+
+def luminance(color) -> float:
+    return 0.3 * color[0] + 0.59 * color[1] + 0.11 * color[2]
+
+
+def scatter(x: int, y: int, seed: int) -> int:
+    """A deterministic pseudo-random number in 0..99 for a pixel."""
+    return ((x * 73856093) ^ (y * 19349663) ^ (seed * 83492791)) % 100
+
+
+def polish(image: Image.Image, seed: int) -> Image.Image:
+    """Makes mirrored, flat-shaded sprites look more hand-made.
+
+    - the hard seam where the two mirrored halves meet is dithered,
+    - the black outline takes on a dark tone of the colors it surrounds,
+    - the lit top-left edges get a rim highlight,
+    - a sparse texture noise breaks up the large flat areas.
+    """
+    w, h = image.size
+    half = w // 2
+    result = image.copy()
+    px = result.load()
+    base = image.load()
+
+    def opaque(x: int, y: int) -> bool:
+        return 0 <= x < w and 0 <= y < h and base[x, y][3] > 0
+
+    # 1. dither the seam between the mirrored halves
+    for y in range(h):
+        for x in (half - 1, half):
+            if (x + y) % 2 == 0 and opaque(x, y) and opaque(w - 1 - x, y):
+                px[x, y] = base[w - 1 - x, y]
+
+    snapshot = result.copy()
+    snap = snapshot.load()
+
+    def solid(x: int, y: int) -> bool:
+        return 0 <= x < w and 0 <= y < h and snap[x, y][3] > 0
+
+    def is_edge(x: int, y: int) -> bool:
+        return any(not solid(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+
+    for y in range(h):
+        for x in range(w):
+            if not solid(x, y):
+                continue
+            color = snap[x, y][:3]
+            if is_edge(x, y) and color == OUTLINE:
+                # 2. outline in a dark shade of the neighbouring body color
+                neighbours = [
+                    snap[x + dx, y + dy][:3]
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                    if solid(x + dx, y + dy) and snap[x + dx, y + dy][:3] != OUTLINE
+                ]
+                if neighbours:
+                    avg = [sum(c[i] for c in neighbours) / len(neighbours) for i in range(3)]
+                    target = tuple(min(channel * 0.34, 62.0) for channel in avg)
+                    px[x, y] = (*nearest_palette(target), 255)
+                continue
+            if color in PROTECTED or color == OUTLINE:
+                continue
+            roll = scatter(x, y, seed)
+            lit_edge = not solid(x, y - 1) or not solid(x - 1, y) or (
+                snap[x, y - 1][:3] == OUTLINE or snap[x - 1, y][:3] == OUTLINE
+            )
+            if lit_edge and roll < 70:
+                # 3. rim light on the top-left edges
+                target = tuple(min(255.0, channel * 1.22 + 14) for channel in color)
+                lighter = nearest_palette(target)
+                if luminance(lighter) > luminance(color):
+                    px[x, y] = (*lighter, 255)
+            elif roll < 5:
+                # 4. texture noise: a few darker and lighter specks
+                target = tuple(channel * 0.8 for channel in color)
+                px[x, y] = (*nearest_palette(target), 255)
+            elif roll < 9:
+                target = tuple(min(255.0, channel * 1.18 + 6) for channel in color)
+                lighter = nearest_palette(target)
+                if luminance(lighter) > luminance(color):
+                    px[x, y] = (*lighter, 255)
+    return result
+
+
 SPRITES = {
     "wizard_0": lambda: wizard(0),
     "wizard_1": lambda: wizard(1),
@@ -778,7 +895,13 @@ def main():
     parser.add_argument("--preview", type=Path, help="also write an enlarged contact sheet")
     args = parser.parse_args()
 
-    images = {name: build() for name, build in SPRITES.items()}
+    images = {}
+    for index, (name, build) in enumerate(SPRITES.items()):
+        image = build()
+        if name.startswith(CHARACTER_PREFIXES):
+            # Both walk frames use the same seed so the texture does not flicker.
+            image = polish(image, seed=sum(name.rstrip("_01").encode()))
+        images[name] = image
     args.output.mkdir(parents=True, exist_ok=True)
     for name, image in images.items():
         image.save(args.output / f"{name}.png")

@@ -63,6 +63,8 @@ pub struct Enemy {
     pub xp: u32,
     /// How large the sprite is drawn, as a multiple of [`SPRITE_SCALE`].
     pub visual_scale: f32,
+    /// The color the sprite returns to after a hit flash.
+    pub tint: Color,
     /// Remaining seconds of the "got hit" squash animation.
     pub hit_flash: f32,
     pub ranged: Option<RangedAttack>,
@@ -217,6 +219,7 @@ pub(crate) fn spawn_enemy_with(
                 contact_dps: base.contact_dps,
                 xp: base.xp * spawn.xp_factor,
                 visual_scale,
+                tint: spawn.tint,
                 hit_flash: 0.0,
                 ranged: base.ranged.filter(|_| spawn.ranged),
                 // Stagger first shots so a group of archers does not fire in unison.
@@ -229,6 +232,16 @@ pub(crate) fn spawn_enemy_with(
             Transform::from_xyz(spawn.position.x, spawn.position.y, 2.0)
                 .with_scale(Vec3::splat(visual_scale)),
             DespawnOnExit(AppState::InGame),
+            // A soft shadow under the feet; the coordinates are in sprite pixels.
+            children![(
+                Mesh2d(assets.circle.clone()),
+                MeshMaterial2d(assets.shadow.clone()),
+                Transform::from_xyz(0.0, -13.0, -0.05).with_scale(Vec3::new(
+                    (base.radius * 0.9).clamp(7.0, 13.0),
+                    3.6,
+                    1.0,
+                )),
+            )],
         ))
         .id()
 }
@@ -334,13 +347,24 @@ fn tick_statuses(
     }
 }
 
-fn animate_hit_flash(time: Res<Time>, mut enemies: Query<(&mut Transform, &mut Enemy)>) {
+/// Sprite color of an enemy for a moment after it is hit.
+const HIT_TINT: Color = Color::srgb(2.6, 2.6, 2.6);
+
+fn animate_hit_flash(
+    time: Res<Time>,
+    mut enemies: Query<(&mut Transform, &mut Enemy, &mut Sprite)>,
+) {
     let dt = time.delta_secs();
-    for (mut transform, mut enemy) in &mut enemies {
+    for (mut transform, mut enemy, mut sprite) in &mut enemies {
         if enemy.hit_flash <= 0.0 {
             continue;
         }
         enemy.hit_flash = (enemy.hit_flash - dt).max(0.0);
+        sprite.color = if enemy.hit_flash > 0.0 {
+            HIT_TINT
+        } else {
+            enemy.tint
+        };
         let squash = 1.0 + 0.35 * (enemy.hit_flash / HIT_FLASH_SECS);
         transform.scale = Vec3::new(
             enemy.visual_scale * squash,

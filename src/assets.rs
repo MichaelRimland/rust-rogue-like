@@ -49,6 +49,10 @@ pub struct GameAssets {
     pub aura: Handle<ColorMaterial>,
     /// The expanding ring of Frost Nova.
     pub ice: Handle<ColorMaterial>,
+    /// Soft ellipse under characters, a warm light under the wizard and the bolt trail.
+    pub shadow: Handle<ColorMaterial>,
+    pub glow: Handle<ColorMaterial>,
+    pub trail: Handle<ColorMaterial>,
     /// Colors of the particles an enemy kind bursts into.
     particles: [Handle<ColorMaterial>; 6],
 }
@@ -168,6 +172,9 @@ fn create_assets(
 
         aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),
         ice: mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
+        shadow: mat(Color::srgba(0.0, 0.0, 0.02, 0.38)),
+        glow: mat(Color::srgba(1.0, 0.82, 0.45, 0.07)),
+        trail: mat(Color::srgba(0.66, 0.50, 1.0, 0.55)),
         particles: [
             mat(Color::srgb(0.30, 0.50, 0.27)),
             mat(Color::srgb(0.83, 0.80, 0.82)),

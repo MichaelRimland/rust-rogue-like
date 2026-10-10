@@ -1,5 +1,6 @@
 //! All screens and overlays.
 
+mod ambience;
 mod hud;
 mod level_up;
 mod menus;
@@ -11,6 +12,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            ambience::AmbiencePlugin,
             hud::HudPlugin,
             level_up::LevelUpUiPlugin,
             menus::MenusPlugin,

@@ -1,6 +1,9 @@
 //! In-run heads-up display: experience bar, health bar, level, time and kills.
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ui::{BackgroundGradient, ColorStop, LinearGradient},
+};
 
 use super::{ACCENT_COLOR, MUTED_TEXT_COLOR, PANEL_COLOR, TEXT_COLOR, format_time, label};
 use crate::{
@@ -38,6 +41,14 @@ struct InfoText;
 #[derive(Component)]
 struct SkillText;
 
+/// A bar fill that is lighter on top and darker at the bottom, for a hint of volume.
+fn bar_gradient(top: Color, bottom: Color) -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::new(
+        LinearGradient::TO_BOTTOM,
+        vec![ColorStop::auto(top), ColorStop::auto(bottom)],
+    ))
+}
+
 fn spawn_hud(mut commands: Commands) {
     // Experience bar across the top edge.
     commands.spawn((
@@ -58,7 +69,7 @@ fn spawn_hud(mut commands: Commands) {
                 height: percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.35, 0.70, 1.0)),
+            bar_gradient(Color::srgb(0.60, 0.88, 1.0), Color::srgb(0.18, 0.46, 0.88)),
         )],
     ));
 
@@ -78,10 +89,13 @@ fn spawn_hud(mut commands: Commands) {
             (
                 Node {
                     width: px(220.0),
-                    height: px(14.0),
+                    height: px(16.0),
+                    border: UiRect::all(px(2.0)),
+                    border_radius: BorderRadius::all(px(3.0)),
                     ..default()
                 },
                 BackgroundColor(PANEL_COLOR),
+                BorderColor::all(Color::srgb(0.02, 0.02, 0.05)),
                 children![(
                     HealthFill,
                     Node {
@@ -89,7 +103,7 @@ fn spawn_hud(mut commands: Commands) {
                         height: percent(100.0),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.85, 0.20, 0.25)),
+                    bar_gradient(Color::srgb(0.96, 0.36, 0.36), Color::srgb(0.55, 0.08, 0.16)),
                 )],
             ),
             (SkillText, label("", 14.0, MUTED_TEXT_COLOR)),
