@@ -29,8 +29,12 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 
 - The Arcane Missile fires automatically towards the **mouse cursor** (no target selection);
   volleys fan out symmetrically around the aim direction.
-- The WASM build works in CI. The deploy job fails until GitHub Pages is enabled
-  (Settings → Pages → Source: GitHub Actions); Pages needs a public repo on the free plan.
+- The WASM build works in CI. GitHub Pages needs a public repo on the free plan, so the repo
+  stays private for now and **both workflows (`ci.yml`, `deploy.yml`) only have the
+  `workflow_dispatch` trigger**. Once the repo is public: re-enable the `push`/`pull_request`
+  triggers (kept as a comment in each file) and set Settings → Pages → Source: GitHub Actions.
+  Until then run `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test`
+  locally before committing.
 - Still open from M1: gameplay GIF for the README (`docs/gameplay.gif`), balancing pass.
 - Next: **M2 performance** (benchmark scene, profiling, pooling, 5 000 enemies at 60 FPS).
 

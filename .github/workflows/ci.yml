@@ -1,9 +1,12 @@
 name: CI
 
+# The repository is private for now, so CI runs manually only. Re-enable the automatic
+# triggers (push/pull_request) once the repository is public:
+#   push:
+#     branches: [main]
+#   pull_request:
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
