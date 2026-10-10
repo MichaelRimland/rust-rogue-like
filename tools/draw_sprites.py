@@ -16,6 +16,7 @@ tools/process_sprites.py so they end up in the same palette.
 
 import argparse
 import math
+import random
 import sys
 from pathlib import Path
 
@@ -786,6 +787,79 @@ def decor_charred() -> Image.Image:
     return c.image(outline=False)
 
 
+# --------------------------------------------------------------------------- ground detail
+
+def detail_layer(size: int, seed: int, draw) -> Image.Image:
+    """A sparse, mostly transparent overlay tiled over the ground. Two layers with tile
+    sizes that share no common period hide the repetition of the base tile."""
+    rng = random.Random(seed)
+    c = Canvas(size)
+    draw(c, rng, size)
+    return c.image(outline=False)
+
+
+def scatter_ellipses(c, rng, count, size, radius, ramp):
+    """Blobs that wrap around the edges, so the layer tiles without seams."""
+    for _ in range(count):
+        cx, cy = rng.uniform(0, size), rng.uniform(0, size)
+        rx, ry = rng.uniform(*radius), rng.uniform(*radius) * 0.7
+        for ox in (-size, 0, size):
+            for oy in (-size, 0, size):
+                ellipse(c, cx + ox, cy + oy, rx, ry, ramp)
+
+
+def crack(c, rng, size, length, colors):
+    """A jagged random walk, wrapped around the tile edges."""
+    x, y = rng.uniform(0, size), rng.uniform(0, size)
+    for _ in range(length):
+        c.put(int(x) % size, int(y) % size, colors[0])
+        if len(colors) > 1 and rng.random() < 0.3:
+            c.put(int(x) % size, (int(y) + 1) % size, colors[1])
+        x += rng.choice((-1, 0, 1, 1))
+        y += rng.choice((-1, 0, 1, 1))
+
+
+def draw_forest_a(c, rng, size):
+    scatter_ellipses(c, rng, 7, size, (2.0, 4.0), [rgb("#0d0b14"), rgb("#11201a"), rgb("#1d3a2b")])
+    for _ in range(9):
+        c.put(rng.randrange(size), rng.randrange(size), rgb("#4c8044"))
+
+
+def draw_forest_b(c, rng, size):
+    scatter_ellipses(c, rng, 5, size, (2.5, 5.0), [rgb("#1a1626"), rgb("#4a2c1e")])
+    for _ in range(14):
+        x, y = rng.randrange(size), rng.randrange(size)
+        c.put(x, y, rgb("#7a4a2a"))
+        c.put((x + 1) % size, y, rgb("#b0763a"))
+
+
+def draw_crypt_a(c, rng, size):
+    for _ in range(6):
+        crack(c, rng, size, rng.randrange(7, 13), [rgb("#0d0b14")])
+    scatter_ellipses(c, rng, 3, size, (2.0, 3.5), [rgb("#0d0b14"), rgb("#123a44"), rgb("#2a7a80")])
+
+
+def draw_crypt_b(c, rng, size):
+    scatter_ellipses(c, rng, 6, size, (3.0, 5.5), [rgb("#0d0b14"), rgb("#1a1626")])
+    for _ in range(10):
+        x, y = rng.randrange(size), rng.randrange(size)
+        for dx in range(rng.randrange(2, 5)):
+            c.put((x + dx) % size, y, rgb("#5a5266"))
+
+
+def draw_inferno_a(c, rng, size):
+    scatter_ellipses(c, rng, 6, size, (2.5, 5.0), [rgb("#0d0b14"), rgb("#1a1626"), rgb("#2b2438")])
+    for _ in range(12):
+        c.put(rng.randrange(size), rng.randrange(size), rgb("#3d3550"))
+
+
+def draw_inferno_b(c, rng, size):
+    for _ in range(4):
+        crack(c, rng, size, rng.randrange(9, 16), [rgb("#c02f2f"), rgb("#7a1c26")])
+    for _ in range(10):
+        c.put(rng.randrange(size), rng.randrange(size), rgb("#ec6a4a"))
+
+
 def decor_bush() -> Image.Image:
     c = Canvas(SMALL)
     ramp = [rgb("#11201a"), rgb("#1d3a2b"), rgb("#2f5a3a")]
@@ -938,7 +1012,23 @@ def polish(image: Image.Image, seed: int) -> Image.Image:
     return result
 
 
+def soft_light() -> Image.Image:
+    """A white disc whose alpha falls off smoothly. It is tinted in the game and drawn
+    with a linear sampler: light pools, glows and soft shadows all use it."""
+    size = 64
+    image = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+    px = image.load()
+    centre = (size - 1) / 2
+    for y in range(size):
+        for x in range(size):
+            distance = math.hypot(x - centre, y - centre) / centre
+            alpha = max(0.0, 1.0 - distance) ** 2
+            px[x, y] = (255, 255, 255, round(alpha * 255))
+    return image
+
+
 SPRITES = {
+    "light": soft_light,
     "wizard_0": lambda: wizard(0),
     "wizard_1": lambda: wizard(1),
     "goblin_0": lambda: goblin(0),
@@ -956,6 +1046,12 @@ SPRITES = {
     "king_0": lambda: king(0),
     "king_1": lambda: king(1),
     "ground": ground,
+    "detail_forest_a": lambda: detail_layer(40, 11, draw_forest_a),
+    "detail_forest_b": lambda: detail_layer(56, 12, draw_forest_b),
+    "detail_crypt_a": lambda: detail_layer(40, 21, draw_crypt_a),
+    "detail_crypt_b": lambda: detail_layer(56, 22, draw_crypt_b),
+    "detail_inferno_a": lambda: detail_layer(40, 31, draw_inferno_a),
+    "detail_inferno_b": lambda: detail_layer(56, 32, draw_inferno_b),
     "ground_crypt": ground_crypt,
     "ground_inferno": ground_inferno,
     "decor_skull": decor_skull,

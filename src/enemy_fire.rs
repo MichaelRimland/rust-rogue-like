@@ -104,11 +104,19 @@ pub(crate) fn spawn_bolt(
             lifetime: BOLT_LIFETIME,
         },
         RoomEntity,
-        Sprite::from_image(assets.enemy_bolt.clone()),
+        {
+            let mut sprite = Sprite::from_image(assets.enemy_bolt.clone());
+            sprite.color = Color::srgb(2.4, 1.4, 1.1);
+            sprite
+        },
         Transform::from_xyz(origin.x, origin.y, 3.8)
             .with_rotation(Quat::from_rotation_z(velocity.to_angle()))
             .with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
+        children![(
+            assets.light(Color::srgba(1.0, 0.30, 0.18, 0.7), Vec2::splat(34.0)),
+            Transform::from_xyz(0.0, 0.0, -0.1),
+        )],
     ));
 }
 

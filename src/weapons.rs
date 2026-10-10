@@ -148,6 +148,9 @@ struct BurstRing {
     radius: f32,
 }
 
+/// Bolts are brighter than 1.0 so they glow, and a violet light pool travels with them.
+const MISSILE_COLOR: Color = Color::srgb(2.0, 1.7, 2.5);
+
 fn spawn_projectile(
     commands: &mut Commands,
     assets: &GameAssets,
@@ -157,13 +160,20 @@ fn spawn_projectile(
     // The sprite points to the right, so rotating by the velocity angle aims it.
     let rotation = Quat::from_rotation_z(projectile.velocity.to_angle());
     let scale = SPRITE_SCALE * projectile.radius / MISSILE_RADIUS;
+    let mut sprite = Sprite::from_image(assets.missile.clone());
+    sprite.color = MISSILE_COLOR;
     commands.spawn((
         projectile,
-        Sprite::from_image(assets.missile.clone()),
+        sprite,
+        // Stretched along the flight direction for a sense of speed.
         Transform::from_xyz(position.x, position.y, 4.0)
             .with_rotation(rotation)
-            .with_scale(Vec3::splat(scale)),
+            .with_scale(Vec3::new(scale * 1.25, scale * 0.85, 1.0)),
         DespawnOnExit(AppState::InGame),
+        children![(
+            assets.light(Color::srgba(0.66, 0.46, 1.0, 0.7), Vec2::splat(30.0)),
+            Transform::from_xyz(0.0, 0.0, -0.1),
+        )],
     ));
 }
 
@@ -676,12 +686,12 @@ fn thunderstorm(
             (
                 Vec2::new(8.0, 460.0),
                 Vec2::new(0.0, 230.0),
-                Color::srgba(1.0, 0.95, 0.6, 0.95),
+                Color::srgba(3.0, 2.8, 1.6, 0.95),
             ),
             (
                 Vec2::splat(StormStats::RADIUS * 1.6),
                 Vec2::ZERO,
-                Color::srgba(1.0, 0.89, 0.48, 0.5),
+                Color::srgba(2.6, 2.1, 1.0, 0.5),
             ),
         ] {
             commands.spawn((
@@ -885,7 +895,11 @@ fn sync_runes(
     for index in 0..wanted {
         commands.spawn((
             Rune { index },
-            Sprite::from_image(assets.rune.clone()),
+            {
+                let mut sprite = Sprite::from_image(assets.rune.clone());
+                sprite.color = Color::srgb(1.7, 1.5, 1.1);
+                sprite
+            },
             Transform::from_xyz(0.0, 0.0, 3.5).with_scale(Vec3::splat(SPRITE_SCALE)),
             DespawnOnExit(AppState::InGame),
         ));

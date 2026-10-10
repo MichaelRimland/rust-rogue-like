@@ -65,15 +65,20 @@ pub fn spawn_gem(commands: &mut Commands, assets: &GameAssets, position: Vec2, v
             value,
             attracted: false,
         },
-        Sprite::from_image(assets.gem_image(value)),
+        {
+            let mut sprite = Sprite::from_image(assets.gem_image(value));
+            sprite.color = Color::srgb(1.6, 1.6, 1.6);
+            sprite
+        },
         Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(SPRITE_SCALE)),
         DespawnOnExit(AppState::InGame),
         // A soft halo behind the gem. The child inherits the parent's scale.
         children![(
-            Mesh2d(assets.circle.clone()),
-            MeshMaterial2d(assets.gem_glow(value)),
-            Transform::from_xyz(0.0, 0.0, -0.1)
-                .with_scale(Vec3::splat(GEM_GLOW_RADIUS / SPRITE_SCALE)),
+            assets.light(
+                assets.gem_glow(value),
+                Vec2::splat(GEM_GLOW_RADIUS * 2.0 / SPRITE_SCALE)
+            ),
+            Transform::from_xyz(0.0, 0.0, -0.1),
         )],
     ));
 }

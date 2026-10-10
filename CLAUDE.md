@@ -93,6 +93,10 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   message, keys 1/2/3 do the same) and a wizard portrait. Note: the first main menu appears
   before `GameAssets` exists (initial state transition runs before PreStartup commands apply),
   so anything needing assets must be created later, see `place_portrait`.
+- Rendering: HDR camera with bloom (threshold 1.0, `Tonemapping::None`): colors above 1.0 glow
+  (bolts, gems, portals, lava, candles). Soft light pools and shadows use the linear-sampled
+  `light` texture (`GameAssets::light`). The ground has two sparse detail overlays with tile
+  sizes 40 and 56 px that hide the repetition. Hits spawn sparks, kills a white death ghost.
 - Biomes: `Biome` / `biome_for_floor` in `logic/dungeon.rs` (floor 1 crypt, floor 2 forest, floor 3 inferno; endless is forest). Each has
   its own ground tile, decoration set (`assets.rs`) and wall colors (`spawn_walls`);
   `sync_biome` in `world.rs` re-dresses the world when the floor changes. Endless stays forest.

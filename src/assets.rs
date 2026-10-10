@@ -4,7 +4,10 @@
 //! drawn by `tools/draw_sprites.py`). Effects that are just soft shapes (aura, particles,
 //! impact rings) still use a shared unit circle mesh.
 
-use bevy::prelude::*;
+use bevy::{
+    image::{ImageLoaderSettings, ImageSampler},
+    prelude::*,
+};
 
 use crate::logic::{dungeon::Biome, enemies::EnemyKind};
 
@@ -44,21 +47,35 @@ pub struct GameAssets {
     pub rune: Handle<Image>,
     gems: [Handle<Image>; 3],
     /// Soft halo behind gems so they stand out on the dark ground.
-    gem_glows: [Handle<ColorMaterial>; 3],
-    /// Decoration sprites per biome, paired with their spawn weight.
-    decor: [Vec<(Handle<Image>, f32)>; 3],
+    /// Decoration per biome.
+    decor: [Vec<DecorDef>; 3],
+    /// Two sparse detail overlays per biome that hide the repetition of the ground tile.
+    detail: [[Handle<Image>; 2]; 3],
+    /// Colored light pools of projectiles, and the sparks of a hit (HDR, so they glow).
+    pub spark: Handle<ColorMaterial>,
 
     pub aura: Handle<ColorMaterial>,
     /// The expanding ring of Frost Nova.
     pub ice: Handle<ColorMaterial>,
     /// Soft ellipse under characters, a warm light under the wizard and the bolt trail.
-    pub shadow: Handle<ColorMaterial>,
-    pub glow: Handle<ColorMaterial>,
+    /// A soft round gradient (linear sampling) for light pools and shadows.
+    light: Handle<Image>,
     pub trail: Handle<ColorMaterial>,
     /// Drifting specks of the biomes (pollen, dust, embers), in the order of [`Biome::ALL`].
     motes: [Handle<ColorMaterial>; 3],
     /// Colors of the particles an enemy kind bursts into.
     particles: [Handle<ColorMaterial>; 6],
+}
+
+/// A kind of ground decoration.
+pub struct DecorDef {
+    pub image: Handle<Image>,
+    /// Relative spawn weight.
+    pub weight: f32,
+    /// Color multiplier above 1.0 makes the sprite glow (bloom).
+    pub emissive: f32,
+    /// A light pool drawn under the decoration, for candles, embers and lava.
+    pub light: Option<Color>,
 }
 
 impl GameAssets {
@@ -92,8 +109,12 @@ impl GameAssets {
         self.ground[biome as usize].clone()
     }
 
-    pub fn decor(&self, biome: Biome) -> &[(Handle<Image>, f32)] {
+    pub fn decor(&self, biome: Biome) -> &[DecorDef] {
         &self.decor[biome as usize]
+    }
+
+    pub fn detail(&self, biome: Biome) -> [Handle<Image>; 2] {
+        self.detail[biome as usize].clone()
     }
 
     /// The gem sprite for an experience value: small, medium or large.
@@ -101,8 +122,22 @@ impl GameAssets {
         self.gems[gem_tier(xp)].clone()
     }
 
-    pub fn gem_glow(&self, xp: u32) -> Handle<ColorMaterial> {
-        self.gem_glows[gem_tier(xp)].clone()
+    /// A soft light pool or shadow: a tinted, round gradient of the given size.
+    pub fn light(&self, color: Color, size: Vec2) -> Sprite {
+        Sprite {
+            image: self.light.clone(),
+            color,
+            custom_size: Some(size),
+            ..default()
+        }
+    }
+
+    pub fn gem_glow(&self, xp: u32) -> Color {
+        match gem_tier(xp) {
+            0 => Color::srgba(0.38, 0.95, 0.90, 0.7),
+            1 => Color::srgba(1.0, 0.89, 0.48, 0.7),
+            _ => Color::srgba(0.66, 0.50, 1.0, 0.75),
+        }
     }
 }
 
@@ -123,6 +158,9 @@ fn create_assets(
     let sprite = |name: &str| asset_server.load(format!("sprites/{name}.png"));
     let frames = |name: &str| [sprite(&format!("{name}_0")), sprite(&format!("{name}_1"))];
     let mut mat = |color: Color| materials.add(color);
+
+    let warm = Color::srgba(1.0, 0.74, 0.32, 0.55);
+    let ember = Color::srgba(1.0, 0.42, 0.14, 0.42);
 
     let assets = GameAssets {
         circle: meshes.add(Circle::new(1.0)),
@@ -150,44 +188,63 @@ fn create_assets(
             sprite("gem_medium"),
             sprite("gem_large"),
         ],
-        gem_glows: [
-            mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
-            mat(Color::srgba(1.0, 0.89, 0.48, 0.30)),
-            mat(Color::srgba(0.56, 0.42, 0.94, 0.32)),
+        decor: {
+            let plain = |image: Handle<Image>, weight: f32| DecorDef {
+                image,
+                weight,
+                emissive: 1.0,
+                light: None,
+            };
+            let lit = |image: Handle<Image>, weight: f32, emissive: f32, light| DecorDef {
+                image,
+                weight,
+                emissive,
+                light: Some(light),
+            };
+            [
+                vec![
+                    plain(sprite("decor_bush"), 3.0),
+                    plain(sprite("decor_tuft"), 3.0),
+                    plain(sprite("decor_stone"), 2.0),
+                    plain(sprite("decor_mushroom"), 1.0),
+                    plain(sprite("decor_bones"), 1.0),
+                ],
+                vec![
+                    plain(sprite("decor_rubble"), 3.0),
+                    plain(sprite("decor_skull"), 2.0),
+                    plain(sprite("decor_pillar"), 1.5),
+                    lit(sprite("decor_candle"), 1.1, 1.5, warm),
+                    plain(sprite("decor_bones"), 2.0),
+                ],
+                vec![
+                    lit(sprite("decor_ember"), 1.2, 1.6, ember),
+                    plain(sprite("decor_obsidian"), 2.0),
+                    lit(sprite("decor_lava"), 0.8, 1.6, ember),
+                    plain(sprite("decor_charred"), 2.0),
+                    plain(sprite("decor_rubble"), 1.0),
+                ],
+            ]
+        },
+        detail: [
+            [sprite("detail_forest_a"), sprite("detail_forest_b")],
+            [sprite("detail_crypt_a"), sprite("detail_crypt_b")],
+            [sprite("detail_inferno_a"), sprite("detail_inferno_b")],
         ],
-        decor: [
-            vec![
-                (sprite("decor_bush"), 3.0),
-                (sprite("decor_tuft"), 3.0),
-                (sprite("decor_stone"), 2.0),
-                (sprite("decor_mushroom"), 1.0),
-                (sprite("decor_bones"), 1.0),
-            ],
-            vec![
-                (sprite("decor_rubble"), 3.0),
-                (sprite("decor_skull"), 2.0),
-                (sprite("decor_pillar"), 1.5),
-                (sprite("decor_candle"), 1.5),
-                (sprite("decor_bones"), 2.0),
-            ],
-            vec![
-                (sprite("decor_ember"), 3.0),
-                (sprite("decor_obsidian"), 2.0),
-                (sprite("decor_lava"), 1.5),
-                (sprite("decor_charred"), 2.0),
-                (sprite("decor_rubble"), 1.0),
-            ],
-        ],
+        spark: mat(Color::srgb(2.6, 2.2, 1.3)),
 
         aura: mat(Color::srgba(0.88, 0.66, 0.19, 0.16)),
         ice: mat(Color::srgba(0.38, 0.79, 0.75, 0.30)),
-        shadow: mat(Color::srgba(0.0, 0.0, 0.02, 0.38)),
-        glow: mat(Color::srgba(1.0, 0.82, 0.45, 0.07)),
+        light: asset_server
+            .load_builder()
+            .with_settings(|settings: &mut ImageLoaderSettings| {
+                settings.sampler = ImageSampler::linear();
+            })
+            .load("sprites/light.png"),
         trail: mat(Color::srgba(0.66, 0.50, 1.0, 0.55)),
         motes: [
-            mat(Color::srgb(0.80, 0.95, 0.45)),
-            mat(Color::srgb(0.62, 0.68, 0.90)),
-            mat(Color::srgb(1.0, 0.52, 0.14)),
+            mat(Color::srgb(1.6, 1.9, 0.8)),
+            mat(Color::srgb(0.9, 1.0, 1.4)),
+            mat(Color::srgb(3.0, 1.3, 0.4)),
         ],
         particles: [
             mat(Color::srgb(0.30, 0.50, 0.27)),

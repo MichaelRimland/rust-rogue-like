@@ -33,7 +33,8 @@ that survives three floors of rounds, shops and bosses - and the end boss.
   (Sanctum, Prism Bolt, Arcane Tempest).
 - **Six enemy types, five bosses.** Ranged enemies shoot slow bolts you have to dodge; bosses
   fire bolt rings, aimed fans and spirals, summon helpers, charge, and get nastier in phases.
-- **Three worlds** (forest, crypt, inferno) with their own ground, decoration and mood.
+- **Three worlds** (forest, crypt, inferno) with their own ground, decoration and mood,
+  lit with HDR bloom, light pools and soft shadows.
 - **Meta-progression.** Runs earn soul shards that buy permanent bonuses at the shrine;
   records are saved.
 - **Seeded runs.** Every run is driven by one seed (shown on the game over screen).
@@ -62,7 +63,7 @@ item to buy it.
   patterns, the spatial hash and the RNG live in `src/logic/` without any Bevy dependency
   and are covered by unit tests (57 tests).
 - **Performance by design.** Hit tests and steering query a spatial hash grid that is
-  rebuilt every frame; 5 000 enemies run at 120+ FPS (see [Performance](#performance)).
+  rebuilt every frame; 5 000 enemies run at 70+ FPS, with shadows, light pools and bloom (see [Performance](#performance)).
 - **Data-driven enemies.** Stats and spawn rules are in `assets/data/enemies.ron`,
   embedded at compile time (works in the browser) and guarded by a test.
 - **Deterministic runs.** A SplitMix64 RNG replaces the `rand` crate; the seed is shown on
@@ -197,12 +198,12 @@ and picks upgrades):
 
 | Enemies alive | Avg frame time | FPS | p99 frame time |
 | ---: | ---: | ---: | ---: |
-| 1 000 | 6.3 ms | 158 | 25 ms |
-| 5 000 | 8.1 ms | 124 | 25 ms |
-| 10 000 | 14.9 ms | 67 | 24 ms |
+| 1 000 | 3.6 ms | 280 (display limit) | 4 ms |
+| 5 000 | 13.6 ms | 74 | 21 ms |
+| 10 000 | 16.3 ms | 61 | 26 ms |
 
-The crowd contains every enemy type, including ranged ones and all their bolts, with sound and
-damage numbers on. The target of 5 000 enemies at 60 FPS is met with a wide margin. Browser
+The crowd contains every enemy type, including ranged ones and all their bolts, with sound,
+damage numbers, soft shadows under every enemy, light pools and bloom switched on. The target of 5 000 enemies at 60 FPS is met with a wide margin. Browser
 (WASM) performance has not been measured yet.
 
 ## Status

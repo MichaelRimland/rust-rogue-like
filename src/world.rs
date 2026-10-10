@@ -1,6 +1,11 @@
 //! Camera and the endless forest floor.
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter},
+    prelude::*,
+    window::PrimaryWindow,
+};
 
 use crate::{
     AppState, GameSet,
@@ -37,6 +42,8 @@ impl Plugin for WorldPlugin {
 /// Must be larger than half the visible area so wrapping happens off screen.
 const DECOR_HALF_EXTENT: Vec2 = Vec2::new(900.0, 600.0);
 const DECOR_COUNT: usize = 420;
+/// Radius of the light pool under glowing decoration, in sprite pixels.
+const DECOR_LIGHT_RADIUS: f32 = 30.0;
 /// How quickly the camera catches up with the player (higher = snappier).
 const CAMERA_FOLLOW_SPEED: f32 = 8.0;
 
@@ -64,6 +71,24 @@ pub struct CurrentBiome(pub Biome);
 #[derive(Component)]
 struct Ground;
 
+/// A sparse overlay on top of the ground. Its tile size differs from the base tile's, so
+/// the combined pattern repeats only every few hundred pixels.
+#[derive(Component)]
+struct GroundDetail {
+    index: usize,
+}
+
+/// Source tile sizes (in sprite pixels) of the two detail layers.
+const DETAIL_TILE_PIXELS: [f32; 2] = [40.0, 56.0];
+
+/// Brightness of the ground; lava floors get above 1.0 so their veins glow.
+fn ground_tint(biome: Biome) -> Color {
+    match biome {
+        Biome::Inferno => Color::srgb(1.3, 1.22, 1.22),
+        _ => Color::WHITE,
+    }
+}
+
 /// Size of the floor sprite in world units; a multiple of the on-screen tile size so it
 /// can be snapped to the tile grid, and larger than any window we expect.
 const GROUND_SIZE: Vec2 = Vec2::new(3072.0, 1920.0);
@@ -87,21 +112,49 @@ impl CameraShake {
     }
 }
 
+fn tiled_sprite(image: Handle<Image>, color: Color) -> Sprite {
+    Sprite {
+        image,
+        color,
+        custom_size: Some(GROUND_SIZE),
+        image_mode: SpriteImageMode::Tiled {
+            tile_x: true,
+            tile_y: true,
+            stretch_value: SPRITE_SCALE,
+        },
+        ..default()
+    }
+}
+
 fn spawn_ground(mut commands: Commands, assets: Res<GameAssets>) {
     commands.spawn((
         Ground,
-        Sprite {
-            image: assets.ground(Biome::Forest),
-            custom_size: Some(GROUND_SIZE),
-            image_mode: SpriteImageMode::Tiled {
-                tile_x: true,
-                tile_y: true,
-                stretch_value: SPRITE_SCALE,
-            },
-            ..default()
-        },
+        tiled_sprite(assets.ground(Biome::Forest), ground_tint(Biome::Forest)),
         Transform::from_xyz(0.0, 0.0, -20.0),
     ));
+    let details = assets.detail(Biome::Forest);
+    for (index, image) in details.into_iter().enumerate() {
+        commands.spawn((
+            GroundDetail { index },
+            tiled_sprite(image, Color::WHITE),
+            Transform::from_xyz(0.0, 0.0, -19.5 + index as f32 * 0.1),
+        ));
+    }
+}
+
+/// Puts the ground and its detail overlays into the look of `biome`.
+fn dress_ground(
+    assets: &GameAssets,
+    biome: Biome,
+    ground: &mut Sprite,
+    details: &mut Query<(&GroundDetail, &mut Sprite), Without<Ground>>,
+) {
+    ground.image = assets.ground(biome);
+    ground.color = ground_tint(biome);
+    let images = assets.detail(biome);
+    for (detail, mut sprite) in details.iter_mut() {
+        sprite.image = images[detail.index].clone();
+    }
 }
 
 /// The mouse cursor in world coordinates, `None` while it is outside the window.
@@ -115,7 +168,22 @@ pub(crate) fn cursor_world_position(
 }
 
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        // Colors brighter than 1.0 (spells, gems, lava, candles) glow; everything else is
+        // left untouched, so the palette keeps its exact colors.
+        Tonemapping::None,
+        Bloom {
+            intensity: 0.26,
+            prefilter: BloomPrefilter {
+                threshold: 1.0,
+                threshold_softness: 0.5,
+            },
+            composite_mode: BloomCompositeMode::Additive,
+            ..Bloom::NATURAL
+        },
+        DebandDither::Enabled,
+    ));
 }
 
 fn reset_camera(
@@ -130,19 +198,29 @@ fn reset_camera(
 /// Scatters the decoration of a biome so the player can see that they are moving.
 fn scatter_decor(commands: &mut Commands, assets: &GameAssets, rng: &mut GameRng, biome: Biome) {
     let decor = assets.decor(biome);
-    let weights: Vec<f32> = decor.iter().map(|(_, weight)| *weight).collect();
+    let weights: Vec<f32> = decor.iter().map(|def| def.weight).collect();
     for _ in 0..DECOR_COUNT {
         let x = rng.0.range_f32(-DECOR_HALF_EXTENT.x, DECOR_HALF_EXTENT.x);
         let y = rng.0.range_f32(-DECOR_HALF_EXTENT.y, DECOR_HALF_EXTENT.y);
-        let index = rng.0.weighted_index(&weights).unwrap_or(0);
-        let mut sprite = Sprite::from_image(decor[index].0.clone());
+        let def = &decor[rng.0.weighted_index(&weights).unwrap_or(0)];
+        let mut sprite = Sprite::from_image(def.image.clone());
         sprite.flip_x = rng.0.chance(0.5);
-        commands.spawn((
+        sprite.color = Color::srgb(def.emissive, def.emissive, def.emissive);
+        let mut entity = commands.spawn((
             Decor,
             sprite,
             Transform::from_xyz(x, y, -10.0).with_scale(Vec3::splat(SPRITE_SCALE)),
             DespawnOnExit(AppState::InGame),
         ));
+        if let Some(light) = &def.light {
+            // A pool of light on the ground around candles, embers and lava.
+            entity.with_children(|parent| {
+                parent.spawn((
+                    assets.light(*light, Vec2::splat(DECOR_LIGHT_RADIUS * 2.0)),
+                    Transform::from_xyz(0.0, 0.0, -0.05),
+                ));
+            });
+        }
     }
 }
 
@@ -152,10 +230,11 @@ fn spawn_decor(
     assets: Res<GameAssets>,
     mut rng: ResMut<GameRng>,
     mut biome: ResMut<CurrentBiome>,
-    mut ground: Single<&mut Sprite, With<Ground>>,
+    mut ground: Single<&mut Sprite, (With<Ground>, Without<GroundDetail>)>,
+    mut details: Query<(&GroundDetail, &mut Sprite), Without<Ground>>,
 ) {
     biome.0 = Biome::Forest;
-    ground.image = assets.ground(Biome::Forest);
+    dress_ground(&assets, Biome::Forest, &mut ground, &mut details);
     scatter_decor(&mut commands, &assets, &mut rng, Biome::Forest);
 }
 
@@ -167,7 +246,8 @@ fn sync_biome(
     dungeon: Res<Dungeon>,
     mut rng: ResMut<GameRng>,
     mut biome: ResMut<CurrentBiome>,
-    mut ground: Single<&mut Sprite, With<Ground>>,
+    mut ground: Single<&mut Sprite, (With<Ground>, Without<GroundDetail>)>,
+    mut details: Query<(&GroundDetail, &mut Sprite), Without<Ground>>,
     decor: Query<Entity, With<Decor>>,
 ) {
     let wanted = match *mode {
@@ -178,7 +258,7 @@ fn sync_biome(
         return;
     }
     biome.0 = wanted;
-    ground.image = assets.ground(wanted);
+    dress_ground(&assets, wanted, &mut ground, &mut details);
     for entity in &decor {
         commands.entity(entity).despawn();
     }
@@ -189,7 +269,19 @@ fn follow_player(
     time: Res<Time>,
     player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
     mut camera: Single<&mut Transform, With<Camera2d>>,
-    mut ground: Single<&mut Transform, (With<Ground>, Without<Camera2d>, Without<Player>)>,
+    mut ground: Single<
+        &mut Transform,
+        (
+            With<Ground>,
+            Without<GroundDetail>,
+            Without<Camera2d>,
+            Without<Player>,
+        ),
+    >,
+    mut details: Query<
+        (&GroundDetail, &mut Transform),
+        (Without<Ground>, Without<Camera2d>, Without<Player>),
+    >,
     mut shake: ResMut<CameraShake>,
     mode: Res<GameMode>,
     window: Single<&Window, With<PrimaryWindow>>,
@@ -221,6 +313,11 @@ fn follow_player(
     // The floor snaps to whole tiles, so the pattern never visibly slides.
     ground.translation.x = (shake.base.x / GROUND_TILE).round() * GROUND_TILE;
     ground.translation.y = (shake.base.y / GROUND_TILE).round() * GROUND_TILE;
+    for (detail, mut transform) in &mut details {
+        let tile = DETAIL_TILE_PIXELS[detail.index] * SPRITE_SCALE;
+        transform.translation.x = (shake.base.x / tile).round() * tile;
+        transform.translation.y = (shake.base.y / tile).round() * tile;
+    }
 }
 
 /// Decoration that falls out of the area around the camera is moved to the opposite

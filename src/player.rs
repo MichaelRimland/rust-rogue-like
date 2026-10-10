@@ -75,14 +75,12 @@ fn spawn_player(mut commands: Commands, assets: Res<GameAssets>, stats: Res<Stat
         children![
             // A faint warm light on the ground around the wizard, and a shadow.
             (
-                Mesh2d(assets.circle.clone()),
-                MeshMaterial2d(assets.glow.clone()),
-                Transform::from_xyz(0.0, -4.0, -0.1).with_scale(Vec3::new(30.0, 24.0, 1.0)),
+                assets.light(Color::srgba(1.0, 0.82, 0.45, 0.42), Vec2::new(150.0, 120.0)),
+                Transform::from_xyz(0.0, -4.0, -0.1),
             ),
             (
-                Mesh2d(assets.circle.clone()),
-                MeshMaterial2d(assets.shadow.clone()),
-                Transform::from_xyz(0.0, -13.0, -0.05).with_scale(Vec3::new(9.0, 3.6, 1.0)),
+                assets.light(Color::srgba(0.0, 0.0, 0.02, 0.62), Vec2::new(24.0, 8.0)),
+                Transform::from_xyz(0.0, -13.0, -0.05),
             ),
         ],
     ));

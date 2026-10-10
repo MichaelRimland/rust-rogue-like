@@ -27,7 +27,7 @@ impl Plugin for CombatPlugin {
             .add_systems(Update, apply_damage.in_set(GameSet::Damage))
             .add_systems(
                 Update,
-                (update_particles, update_damage_numbers).in_set(GameSet::Movement),
+                (update_particles, update_damage_numbers, fade_ghosts).in_set(GameSet::Movement),
             );
     }
 }
@@ -48,6 +48,17 @@ struct Particle {
 }
 
 const DEATH_PARTICLES: usize = 6;
+/// Particles above this count are not added, so a big fight stays cheap.
+const MAX_PARTICLES: usize = 260;
+
+/// The white afterimage of an enemy that just died.
+#[derive(Component)]
+struct DeathGhost {
+    lifetime: f32,
+}
+
+const GHOST_SECS: f32 = 0.2;
+const GHOST_COLOR: Color = Color::srgba(3.0, 3.0, 3.0, 0.9);
 
 /// Floating number that rises from a hit enemy and fades out.
 #[derive(Component)]
@@ -69,14 +80,16 @@ fn apply_damage(
     mut run: ResMut<RunStats>,
     mut sounds: MessageWriter<PlaySound>,
     mut messages: MessageReader<DamageEnemy>,
-    mut enemies: Query<(&Transform, &mut Enemy, Option<&Vulnerable>)>,
+    mut enemies: Query<(&Transform, &mut Enemy, Option<&Vulnerable>, &Sprite)>,
     numbers: Query<(), With<DamageNumber>>,
+    particles: Query<(), With<Particle>>,
     stats: Res<Stats>,
     mut player_health: Single<&mut Health, With<Player>>,
 ) {
     let mut visible_numbers = numbers.iter().count();
+    let mut live_particles = particles.iter().count();
     for message in messages.read() {
-        let Ok((transform, mut enemy, vulnerable)) = enemies.get_mut(message.entity) else {
+        let Ok((transform, mut enemy, vulnerable, sprite)) = enemies.get_mut(message.entity) else {
             // Already despawned, e.g. killed earlier this frame by another weapon.
             continue;
         };
@@ -89,6 +102,28 @@ fn apply_damage(
         enemy.health -= amount;
         enemy.hit_flash = HIT_FLASH_SECS;
         sounds.write(PlaySound(Sfx::Hit));
+
+        // A couple of bright sparks fly off every hit.
+        if live_particles < MAX_PARTICLES {
+            for _ in 0..2 {
+                live_particles += 1;
+                let direction = Vec2::from_angle(rng.0.range_f32(0.0, std::f32::consts::TAU));
+                let lifetime = rng.0.range_f32(0.12, 0.26);
+                commands.spawn((
+                    Particle {
+                        velocity: direction * rng.0.range_f32(90.0, 210.0),
+                        lifetime,
+                        max_lifetime: lifetime,
+                        size: 1.7,
+                    },
+                    Mesh2d(assets.circle.clone()),
+                    MeshMaterial2d(assets.spark.clone()),
+                    Transform::from_xyz(transform.translation.x, transform.translation.y, 5.0)
+                        .with_scale(Vec3::splat(1.7)),
+                    DespawnOnExit(AppState::InGame),
+                ));
+            }
+        }
 
         if visible_numbers < MAX_DAMAGE_NUMBERS && amount >= 1.0 {
             visible_numbers += 1;
@@ -130,6 +165,21 @@ fn apply_damage(
         sounds.write(PlaySound(Sfx::Kill));
         run.gold += enemy.kind.gold();
         spawn_gem(&mut commands, &assets, position, enemy.xp);
+        // The dying enemy flashes white and puffs up while it fades.
+        commands.spawn((
+            DeathGhost {
+                lifetime: GHOST_SECS,
+            },
+            Sprite {
+                image: sprite.image.clone(),
+                flip_x: sprite.flip_x,
+                color: GHOST_COLOR,
+                ..default()
+            },
+            Transform::from_xyz(position.x, position.y, 2.6)
+                .with_scale(Vec3::splat(enemy.visual_scale)),
+            DespawnOnExit(AppState::InGame),
+        ));
         let material = assets.enemy_material(enemy.kind);
         for _ in 0..DEATH_PARTICLES {
             let direction = Vec2::from_angle(rng.0.range_f32(0.0, std::f32::consts::TAU));
@@ -205,6 +255,24 @@ fn update_damage_numbers(
         }
         transform.translation.y += NUMBER_RISE_SPEED * dt;
         color.0 = color.0.with_alpha((number.lifetime / NUMBER_SECS).min(1.0));
+    }
+}
+
+fn fade_ghosts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut ghosts: Query<(Entity, &mut Transform, &mut Sprite, &mut DeathGhost)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut transform, mut sprite, mut ghost) in &mut ghosts {
+        ghost.lifetime -= dt;
+        if ghost.lifetime <= 0.0 {
+            commands.entity(entity).try_despawn();
+            continue;
+        }
+        transform.scale *= 1.0 + 1.6 * dt;
+        let t = ghost.lifetime / GHOST_SECS;
+        sprite.color = GHOST_COLOR.with_alpha(GHOST_COLOR.alpha() * t);
     }
 }
 

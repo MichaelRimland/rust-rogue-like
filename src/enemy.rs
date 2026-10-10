@@ -234,13 +234,11 @@ pub(crate) fn spawn_enemy_with(
             DespawnOnExit(AppState::InGame),
             // A soft shadow under the feet; the coordinates are in sprite pixels.
             children![(
-                Mesh2d(assets.circle.clone()),
-                MeshMaterial2d(assets.shadow.clone()),
-                Transform::from_xyz(0.0, -13.0, -0.05).with_scale(Vec3::new(
-                    (base.radius * 0.9).clamp(7.0, 13.0),
-                    3.6,
-                    1.0,
-                )),
+                assets.light(
+                    Color::srgba(0.0, 0.0, 0.02, 0.62),
+                    Vec2::new((base.radius * 2.0).clamp(15.0, 28.0), 8.0)
+                ),
+                Transform::from_xyz(0.0, -13.0, -0.05),
             )],
         ))
         .id()

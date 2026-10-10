@@ -518,7 +518,9 @@ fn spawn_doors(commands: &mut Commands, assets: &GameAssets, dungeon: &Dungeon) 
             DoorTarget::NextFloor => "Descend",
         };
         let mut sprite = Sprite::from_image(assets.portal[0].clone());
-        sprite.color = door_color(target);
+        // Brighter than 1.0, so the swirl glows in the color of the room behind the door.
+        let color = door_color(target).to_srgba();
+        sprite.color = Color::srgb(color.red * 1.7, color.green * 1.7, color.blue * 1.7);
         commands.spawn((
             RoomEntity,
             Door { target },
@@ -540,9 +542,8 @@ fn spawn_doors(commands: &mut Commands, assets: &GameAssets, dungeon: &Dungeon) 
                 ),
                 // A soft glow on the ground in front of the portal.
                 (
-                    Mesh2d(assets.circle.clone()),
-                    MeshMaterial2d(assets.glow.clone()),
-                    Transform::from_xyz(0.0, -12.0, -0.1).with_scale(Vec3::new(14.0, 5.0, 1.0)),
+                    assets.light(door_color(target).with_alpha(0.55), Vec2::new(46.0, 18.0)),
+                    Transform::from_xyz(0.0, -12.0, -0.1),
                 ),
             ],
         ));
