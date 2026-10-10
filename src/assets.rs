@@ -32,6 +32,7 @@ pub struct GameAssets {
     archer: [Handle<Image>; 2],
 
     pub missile: Handle<Image>,
+    pub ground: Handle<Image>,
     pub enemy_bolt: Handle<Image>,
     pub rune: Handle<Image>,
     gems: [Handle<Image>; 3],
@@ -102,6 +103,7 @@ fn create_assets(
         archer: frames("archer"),
 
         missile: sprite("missile"),
+        ground: sprite("ground"),
         enemy_bolt: sprite("enemy_bolt"),
         rune: sprite("rune"),
         gems: [

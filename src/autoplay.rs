@@ -9,7 +9,11 @@
 //! level-up and exits with the frame-time statistics. A panic therefore shows up as a
 //! non-zero exit code, which makes this a cheap end-to-end smoke test.
 
-use bevy::{input::InputSystems, prelude::*};
+use bevy::{
+    input::InputSystems,
+    prelude::*,
+    render::view::screenshot::{Screenshot, save_to_disk},
+};
 
 use crate::{
     AppState, GamePhase,
@@ -34,10 +38,15 @@ impl Plugin for AutoplayPlugin {
     }
 }
 
+/// When the optional screenshot is taken, in seconds of play.
+const SCREENSHOT_AFTER_SECS: f32 = 8.0;
+
 #[derive(Resource)]
 struct AutoplayConfig {
     seconds: f32,
     enemies: usize,
+    /// Saves a screenshot of the window to this path after a few seconds of play.
+    screenshot: Option<String>,
 }
 
 impl AutoplayConfig {
@@ -49,9 +58,15 @@ impl AutoplayConfig {
                 .and_then(|i| args.get(i + 1))
                 .and_then(|v| v.parse::<f32>().ok())
         };
+        let screenshot = args
+            .iter()
+            .position(|arg| arg == "--screenshot")
+            .and_then(|i| args.get(i + 1))
+            .cloned();
         Some(Self {
             seconds: value("--autoplay")?,
             enemies: value("--enemies").unwrap_or(0.0) as usize,
+            screenshot,
         })
     }
 }
@@ -59,6 +74,7 @@ impl AutoplayConfig {
 #[derive(Resource, Default)]
 struct AutoplayStats {
     started: bool,
+    screenshot_taken: bool,
     run_time: f32,
     frame_times: Vec<f32>,
 }
@@ -118,6 +134,15 @@ fn autoplay_run(
     }
 
     stats.run_time += time.delta_secs();
+    if let Some(path) = &config.screenshot
+        && !stats.screenshot_taken
+        && stats.run_time > SCREENSHOT_AFTER_SECS
+    {
+        stats.screenshot_taken = true;
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(path.clone()));
+    }
     // Skip the first second: asset loading and shader compilation distort it.
     if stats.run_time > 1.0 {
         stats.frame_times.push(time.delta_secs());

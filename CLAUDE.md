@@ -70,6 +70,10 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   mesh. Endless forest floor via wrapping decor. AI-generated art can replace any sprite file;
   run it through `tools/process_sprites.py`.
 - Seeded runs: seed from `Time<Real>` at run start (works on WASM), shown on game over.
+- Game feel: floating damage numbers (capped), screen shake (`CameraShake` in `world.rs`),
+  archers light up before shooting, tiled forest floor snapped to the tile grid.
+- Dev tools: `cargo run -- --autoplay 20 --enemies 2000 --screenshot out.png` plays an
+  unattended run (see `autoplay.rs`). Use it to smoke-test changes and to look at the game.
 
 ## File map
 

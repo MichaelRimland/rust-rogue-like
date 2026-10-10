@@ -412,6 +412,26 @@ def rune() -> Image.Image:
     return c.image()
 
 
+def ground() -> Image.Image:
+    """A seamless forest floor tile: dark moss with sparse lighter specks and tufts."""
+    c = Canvas(SIZE)
+    base = rgb("#11201a")
+    speck = [rgb("#1d3a2b"), rgb("#2f5a3a")]
+    c.pixels = {(x, y): base for x in range(SIZE) for y in range(SIZE)}
+    # A fixed, hand-picked scatter keeps the tile identical on every run.
+    for x, y in ((3, 5), (11, 2), (19, 9), (27, 4), (7, 14), (23, 17), (14, 21), (30, 26),
+                 (2, 27), (9, 30), (20, 29), (16, 12), (28, 12), (5, 20), (12, 8), (25, 22)):
+        c.put(x, y, speck[0])
+    for x, y in ((8, 18), (22, 6), (17, 25), (29, 15), (4, 10), (13, 28)):
+        c.put(x, y, speck[1])
+        c.put(x + 1, y, speck[0])
+    # A few darker patches for depth.
+    dark = rgb("#0d0b14")
+    for x, y in ((10, 11), (11, 11), (24, 27), (25, 27), (6, 3), (18, 16), (19, 16)):
+        c.put(x, y, dark)
+    return c.image(outline=False)
+
+
 def decor_bush() -> Image.Image:
     c = Canvas(SMALL)
     ramp = [rgb("#11201a"), rgb("#1d3a2b"), rgb("#2f5a3a")]
@@ -476,6 +496,7 @@ SPRITES = {
     "ogre_1": lambda: ogre(1),
     "archer_0": lambda: archer(0),
     "archer_1": lambda: archer(1),
+    "ground": ground,
     "missile": missile,
     "enemy_bolt": enemy_bolt,
     "gem_small": lambda: gem(4, 5, [rgb("#2a7a80"), rgb("#62c9c0"), rgb("#f2ecdf"), rgb("#f2ecdf")]),
