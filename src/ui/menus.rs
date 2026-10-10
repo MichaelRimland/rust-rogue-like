@@ -59,7 +59,7 @@ fn place_portrait(
     camera: Single<&Transform, (With<Camera2d>, Without<MenuPortrait>)>,
     portrait: Option<Single<&mut Transform, With<MenuPortrait>>>,
 ) {
-    let position = camera.translation.truncate() + Vec2::new(0.0, 250.0);
+    let position = camera.translation.truncate() + Vec2::new(0.0, 290.0);
     match portrait {
         Some(mut portrait) => {
             portrait.translation.x = position.x;
@@ -69,7 +69,7 @@ fn place_portrait(
             commands.spawn((
                 MenuPortrait,
                 Sprite::from_image(assets.wizard[0].clone()),
-                Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(5.0)),
+                Transform::from_xyz(position.x, position.y, 1.0).with_scale(Vec3::splat(3.0)),
                 DespawnOnExit(AppState::MainMenu),
             ));
         }
