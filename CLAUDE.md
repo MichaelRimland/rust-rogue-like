@@ -23,7 +23,7 @@ upgrades on level-up. Later milestones add procedurally generated dungeon floors
 ## Current status (Oct 2026)
 
 **Milestone 1 (core loop) is done and playable.** The Bevy code builds on 0.20.0 without
-warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (19 tests) and `cargo fmt`
+warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (59 tests) and `cargo fmt`
 are clean. The repo lives at github.com/MichaelRimland/rust-rogue-like (private for now) with
 CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 
@@ -37,7 +37,10 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   locally before committing.
 - **TODO (remind the user):** restore the "Play in browser" link in `README.md` (commented
   out for now) once the repo is public and Pages is enabled.
-- Still open from M1: gameplay GIF for the README (`docs/gameplay.gif`), balancing pass.
+- Balancing: `--autoplay SECS --mortal` lets the bot die and prints a summary (time, level, kills,
+  seed). The bot kites and aims at the nearest enemy (`AimOverride` in `weapons.rs`) but always
+  picks card 1, so treat results as a hint, not proof. The first dungeon room is a warm-up
+  (`is_warmup` in `logic/dungeon.rs`). Still open: a hand-played balancing pass of rooms 2+.
 - Next: **M2 performance** (benchmark scene, profiling, pooling, 5 000 enemies at 60 FPS).
 
 ## What Milestone 1 contains
