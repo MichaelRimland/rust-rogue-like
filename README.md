@@ -1,5 +1,7 @@
 # Hexfall
 
+[![CI](https://github.com/MichaelRimland/rust-rogue-like/actions/workflows/ci.yml/badge.svg)](https://github.com/MichaelRimland/rust-rogue-like/actions/workflows/ci.yml)
+
 A dark-fantasy **survivor-roguelike** written in **Rust** with the
 **[Bevy](https://bevy.org) 0.20** engine. You are a lone wizard: your spells cast themselves
 towards the mouse cursor, your job is to move, dodge and turn lucky upgrade rolls into a build
