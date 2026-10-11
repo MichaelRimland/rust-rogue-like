@@ -32,6 +32,30 @@
   </head>
   <body>
     <div id="loading">Summoning the forest&hellip;</div>
+    <script>
+      // Browsers keep an AudioContext "suspended" until the first user gesture, and the
+      // engine never resumes it. Remember every context the game creates and resume them
+      // on the first key press or click.
+      (() => {
+        const contexts = [];
+        for (const name of ["AudioContext", "webkitAudioContext"]) {
+          const Original = window[name];
+          if (!Original) continue;
+          window[name] = class extends Original {
+            constructor(...args) {
+              super(...args);
+              contexts.push(this);
+            }
+          };
+        }
+        const resume = () => {
+          contexts.forEach((context) => context.state !== "running" && context.resume());
+        };
+        for (const type of ["pointerdown", "keydown", "touchend"]) {
+          window.addEventListener(type, resume, { capture: true });
+        }
+      })();
+    </script>
     <script type="module">
       import init from "./hexfall.js";
       init()
