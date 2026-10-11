@@ -21,6 +21,7 @@ pub struct WeaponsPlugin;
 impl Plugin for WeaponsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WeaponTimers>()
+            .init_resource::<AimOverride>()
             .add_systems(OnEnter(AppState::InGame), (reset_weapons, spawn_aura))
             .add_systems(
                 Update,
@@ -204,6 +205,10 @@ fn spawn_aura(mut commands: Commands, assets: Res<GameAssets>) {
 // Arcane Missile
 // ---------------------------------------------------------------------------
 
+/// World position to aim at instead of the mouse cursor. Only the autoplay bot sets it.
+#[derive(Resource, Default)]
+pub(crate) struct AimOverride(pub Option<Vec2>);
+
 /// Fires a fan of bolts towards the mouse cursor whenever the cooldown is ready, plus the
 /// echoes of earlier volleys (Spell Echo).
 fn fire_missiles(
@@ -214,6 +219,7 @@ fn fire_missiles(
     mut rng: ResMut<GameRng>,
     mut timers: ResMut<WeaponTimers>,
     mut sounds: MessageWriter<PlaySound>,
+    aim_override: Res<AimOverride>,
     player: Single<(&Transform, &Player, &Health)>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -241,7 +247,9 @@ fn fire_missiles(
 
     // Aim at the cursor; keep the last move direction when the cursor is outside the window.
     let (camera, camera_transform) = *camera;
-    let cursor_world = cursor_world_position(&window, camera, camera_transform);
+    let cursor_world = aim_override
+        .0
+        .or_else(|| cursor_world_position(&window, camera, camera_transform));
     let aim = cursor_world
         .map(|target| (target - origin).normalize_or(player.facing))
         .unwrap_or(player.facing);

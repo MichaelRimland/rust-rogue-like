@@ -27,8 +27,9 @@ use crate::{
     logic::dungeon::RoomKind,
     logic::stats::Upgrade,
     player::Player,
-    run::{GameRng, RunStats, Stats},
+    run::{GameRng, RunStats, Stats, Xp},
     save::SaveDisabled,
+    weapons::AimOverride,
 };
 
 pub struct AutoplayPlugin;
@@ -50,6 +51,7 @@ impl Plugin for AutoplayPlugin {
             .init_resource::<AutoplayStats>()
             .add_systems(PreUpdate, autoplay_input.after(InputSystems))
             .add_systems(Update, autoplay_run.run_if(in_state(AppState::InGame)))
+            .add_systems(OnEnter(AppState::GameOver), report_run_end)
             .add_systems(Update, capture_scene);
     }
 }
@@ -58,6 +60,8 @@ impl Plugin for AutoplayPlugin {
 const SCREENSHOT_AFTER_SECS: f32 = 8.0;
 /// The bot stops steering when it is this close to its target.
 const ARRIVED_DISTANCE: f32 = 12.0;
+/// `--mortal`: the bot backs away from enemies closer than this.
+const KITE_DISTANCE: f32 = 150.0;
 
 #[derive(Resource)]
 struct AutoplayConfig {
@@ -68,6 +72,8 @@ struct AutoplayConfig {
     maxed: bool,
     /// Do not pick upgrades automatically (to test the mouse selection by hand).
     hold_level_up: bool,
+    /// `--mortal`: no god mode, so the bot can die. Prints a balance summary at the end.
+    mortal: bool,
     /// Dungeon only: begin on this floor (`--floor N`), in its boss room with `--boss`.
     start_floor: Option<u32>,
     boss_room: bool,
@@ -140,6 +146,7 @@ impl AutoplayConfig {
             capture,
             maxed: args.iter().any(|arg| arg == "--maxed"),
             hold_level_up: args.iter().any(|arg| arg == "--hold-levelup"),
+            mortal: args.iter().any(|arg| arg == "--mortal"),
             start_floor,
             boss_room,
             scene,
@@ -171,6 +178,7 @@ fn autoplay_input(
     phase: Option<Res<State<GamePhase>>>,
     stats: Res<AutoplayStats>,
     dungeon: Res<Dungeon>,
+    mut aim: ResMut<AimOverride>,
     player: Query<&Transform, With<Player>>,
     enemies: Query<&Transform, With<Enemy>>,
     doors: Query<&Transform, With<Door>>,
@@ -228,8 +236,23 @@ fn autoplay_input(
                     here + Vec2::from_angle(angle) * 100.0
                 });
 
-            let offset = target - here;
-            if offset.length() > ARRIVED_DISTANCE {
+            // The bolts follow the mouse, so aim at the closest enemy (or keep the last aim).
+            aim.0 = nearest(&mut enemies.iter()).or(aim.0);
+
+            let mut offset = target - here;
+            if config.mortal {
+                // Kite like a player: back away from enemies that got too close.
+                let flee: Vec2 = enemies
+                    .iter()
+                    .map(|t| here - t.translation.truncate())
+                    .filter(|away| away.length() < KITE_DISTANCE)
+                    .map(|away| away.normalize_or_zero() * (KITE_DISTANCE / away.length().max(1.0)))
+                    .sum();
+                if flee != Vec2::ZERO {
+                    offset = flee;
+                }
+            }
+            if offset.length() > ARRIVED_DISTANCE || config.mortal {
                 let threshold = 6.0;
                 if offset.x > threshold {
                     keys.press(KeyCode::KeyD);
@@ -278,7 +301,7 @@ fn autoplay_run(
     if !stats.started {
         stats.started = true;
         // Nothing may kill the player during a benchmark.
-        bench.god_mode = true;
+        bench.god_mode = !config.mortal;
         if config.endless {
             *mode = GameMode::Endless;
         }
@@ -366,6 +389,30 @@ fn autoplay_run(
         run_stats.room,
         run_stats.gold,
         run_stats.kills,
+    );
+    exit.write(AppExit::Success);
+}
+
+/// `--mortal`: the run ended (death or victory); prints what a balance pass needs and exits.
+fn report_run_end(
+    config: Res<AutoplayConfig>,
+    run_stats: Res<RunStats>,
+    xp: Res<Xp>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if !config.mortal {
+        return;
+    }
+    println!(
+        "AUTOPLAY END: {} after {:.0}s, floor {} room {}, level {}, {} kills, {} gold, seed {}",
+        if run_stats.victory { "victory" } else { "died" },
+        run_stats.elapsed,
+        run_stats.floor,
+        run_stats.room,
+        xp.level,
+        run_stats.kills,
+        run_stats.gold,
+        run_stats.seed,
     );
     exit.write(AppExit::Success);
 }
