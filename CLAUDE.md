@@ -23,7 +23,7 @@ upgrades on level-up. Later milestones add procedurally generated dungeon floors
 ## Current status (Oct 2026)
 
 **Milestone 1 (core loop) is done and playable.** The Bevy code builds on 0.20.0 without
-warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (59 tests) and `cargo fmt`
+warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (69 tests, 10 of them headless integration tests) and `cargo fmt`
 are clean. The repo lives at github.com/MichaelRimland/rust-rogue-like (private for now) with
 CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 
@@ -134,6 +134,7 @@ src/weapons.rs      missiles, aura, runes (fire + hit detection)
 src/combat.rs       DamageEnemy message, apply_damage (kills, gems, particles), contact damage
 src/progression.rs  XpGem, PendingLevelUps, LevelUpChoices, choose_upgrade
 src/ui/             mod.rs (helpers, colors), hud.rs, menus.rs, level_up.rs
+src/headless_tests.rs  integration tests: whole GamePlugin on MinimalPlugins, keys via KeyTaps (cfg(test))
 src/logic/          engine-independent + unit tested:
                     rng.rs (SplitMix64), spatial.rs (SpatialGrid), stats.rs (PlayerStats, Upgrade,
                     roll_upgrades), progression.rs (XP + difficulty curves), enemies.rs (EnemyKind)
@@ -166,7 +167,7 @@ web/index.html      page for the WASM build
 - [x] **M5 polish** – done: pixel-art sprites (drawn in code, replaceable by AI art), synthesized
       sound, screen shake, damage numbers, meta-progression with a save game (`logic/meta.rs`,
       `save.rs`, shrine screen), volume setting, Windows release workflow (`release.yml`)
-- Possible later: headless integration tests (`App` with `MinimalPlugins` + `StatesPlugin`),
+- Possible later: more headless integration tests (combat, dungeon room flow, shop),
   controller support, more characters.
 
 ## Bevy 0.20 pitfalls

@@ -16,6 +16,8 @@ mod combat;
 mod dungeon;
 mod enemy;
 mod enemy_fire;
+#[cfg(test)]
+mod headless_tests;
 mod player;
 mod progression;
 mod run;
