@@ -164,18 +164,35 @@ pub fn round_quota(kind: RoomKind, floor: u32, layer: usize) -> u32 {
     }
 }
 
+/// The very first room of a run: the wizard has one weak bolt and no upgrades yet, so this
+/// round is a warm-up with smaller and slower waves (autoplay `--mortal` died here in ~30 s).
+fn is_warmup(floor: u32, layer: usize) -> bool {
+    floor <= 1 && layer == 0
+}
+
 /// Seconds between two batches of enemies entering the arena during a round.
 pub fn round_spawn_interval(kind: RoomKind, floor: u32, layer: usize) -> f32 {
     match kind {
         RoomKind::Elite => 3.5,
-        _ => (2.2 - 0.12 * layer as f32 - 0.2 * floor as f32).clamp(0.8, 2.2),
+        _ => {
+            let base = (2.2 - 0.12 * layer as f32 - 0.2 * floor as f32).clamp(0.8, 2.2);
+            if is_warmup(floor, layer) {
+                base + WARMUP_EXTRA_INTERVAL
+            } else {
+                base
+            }
+        }
     }
 }
+
+/// Extra seconds between waves in the warm-up room.
+const WARMUP_EXTRA_INTERVAL: f32 = 0.8;
 
 /// Enemies per batch.
 pub fn round_batch_size(kind: RoomKind, floor: u32, layer: usize) -> u32 {
     match kind {
         RoomKind::Elite => 1,
+        _ if is_warmup(floor, layer) => 2,
         _ => 2 + floor + layer as u32 / 2,
     }
 }
@@ -433,6 +450,16 @@ mod tests {
         );
         assert!(round_spawn_interval(RoomKind::Arena, 9, 9) >= 0.8);
         assert!(round_batch_size(RoomKind::Arena, 3, 4) > round_batch_size(RoomKind::Arena, 1, 1));
+    }
+
+    #[test]
+    fn the_first_room_is_a_gentle_warmup() {
+        let rate = |floor, layer| {
+            round_batch_size(RoomKind::Arena, floor, layer) as f32
+                / round_spawn_interval(RoomKind::Arena, floor, layer)
+        };
+        assert!(rate(1, 0) < 0.8, "fewer than one enemy per second");
+        assert!(rate(1, 0) < rate(1, 1), "the second room is denser again");
     }
 
     #[test]
