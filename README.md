@@ -9,9 +9,7 @@ that survives three floors of rounds, shops and bosses - and the end boss.
   <img src="docs/gameplay.webp" alt="Gameplay in the crypt" width="720">
 </p>
 
-<!-- TODO once the repo is public and GitHub Pages is enabled, restore the play link:
 **[▶ Play in the browser](https://MichaelRimland.github.io/rust-rogue-like/)**
--->
 
 | | |
 | --- | --- |

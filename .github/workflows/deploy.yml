@@ -2,12 +2,9 @@
 # One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 
-# The repository is private for now, and GitHub Pages is not available for private
-# repositories on the free plan. Run manually only. Re-enable the automatic trigger
-# (push to main) once the repository is public:
-#   push:
-#     branches: [main]
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

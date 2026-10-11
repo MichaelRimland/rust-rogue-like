@@ -24,25 +24,25 @@ upgrades on level-up. Later milestones add procedurally generated dungeon floors
 
 **Milestone 1 (core loop) is done and playable.** The Bevy code builds on 0.20.0 without
 warnings; `cargo clippy --all-targets -- -D warnings`, `cargo test` (69 tests, 10 of them headless integration tests) and `cargo fmt`
-are clean. The repo lives at github.com/MichaelRimland/rust-rogue-like (private for now) with
+are clean. The repo lives at github.com/MichaelRimland/rust-rogue-like (private until the steps above are done) with
 CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
 
 - The Arcane Missile fires automatically towards the **mouse cursor** (no target selection);
   volleys fan out symmetrically around the aim direction.
-- The WASM build works in CI. GitHub Pages needs a public repo on the free plan, so the repo
-  stays private for now and **both workflows (`ci.yml`, `deploy.yml`) only have the
-  `workflow_dispatch` trigger**. Once the repo is public: re-enable the `push`/`pull_request`
-  triggers (kept as a comment in each file) and set Settings → Pages → Source: GitHub Actions.
-  Until then run `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test`
-  locally before committing.
-- **TODO (remind the user):** restore the "Play in browser" link in `README.md` (commented
-  out for now) once the repo is public and Pages is enabled.
+- The WASM build works in CI. Both workflows (`ci.yml`, `deploy.yml`) have their `push`
+  triggers (and `pull_request` for CI) re-enabled and the README play link is restored, but
+  **they only make sense once the repo is public** (Pages needs a public repo on the free
+  plan). Remaining manual steps in GitHub: make the repo public, Settings -> Pages -> Source:
+  GitHub Actions. Until the commit that enables the
+  triggers is pushed, run `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and
+  `cargo test` locally before committing.
 - Balancing: `--autoplay SECS --mortal` lets the bot die and prints a summary (time, level, kills,
   seed). The bot kites and aims at the nearest enemy (`AimOverride` in `weapons.rs`) but always
   picks card 1, so treat results as a hint, not proof. The first dungeon room is a warm-up
   (`is_warmup` in `logic/dungeon.rs`). Still open: a hand-played balancing pass of rooms 2+.
-- All roadmap milestones are done (see Roadmap). The GitHub repo is still called `rust-rogue-like`;
-  rename it to `hexfall` in Settings when going public and fix the play link in `README.md`.
+- All roadmap milestones are done (see Roadmap). The GitHub repo deliberately keeps the working
+  title `rust-rogue-like` (a portfolio project that is never released elsewhere, so a clash
+  with other games called Hexfall does not matter); the Pages URL is `.../rust-rogue-like/`.
 
 ## What Milestone 1 contains
 
