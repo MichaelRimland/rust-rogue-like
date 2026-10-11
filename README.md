@@ -16,7 +16,7 @@ that survives three floors of rounds, shops and bosses - and the end boss.
 | | |
 | --- | --- |
 | ![Main menu](docs/screenshots/menu.png) | ![Crypt](docs/screenshots/crypt.png) |
-| ![Forest](docs/screenshots/forest.png) | ![Boss fight](docs/screenshots/boss-fight.png) |
+| ![Forest](docs/screenshots/forest.png) | ![Inferno](docs/screenshots/inferno.png) |
 
 ## Features
 
