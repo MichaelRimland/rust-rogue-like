@@ -3014,6 +3014,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hexfall"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ron",
+ "serde",
+]
+
+[[package]]
 name = "hound"
 version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4690,15 +4699,6 @@ dependencies = [
  "serde_derive",
  "typeid",
  "unicode-ident",
-]
-
-[[package]]
-name = "rust-rogue-like"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "ron",
- "serde",
 ]
 
 [[package]]

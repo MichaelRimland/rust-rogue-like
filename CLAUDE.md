@@ -15,7 +15,7 @@ messages and the README stay in English (portfolio project).
 
 ## The game
 
-**rust-rogue-like** (working title, final name still open – "Runebound" was dropped because a board game of that name exists) – a fantasy survivor-roguelike (Vampire Survivors meets roguelike runs).
+**Hexfall** (renamed from the working title "rust-rogue-like"; "Runebound" was dropped because a board game of that name exists) – a fantasy survivor-roguelike (Vampire Survivors meets roguelike runs).
 A wizard in a cursed forest; spells fire automatically, the player only moves and picks
 upgrades on level-up. Later milestones add procedurally generated dungeon floors
 (arena rooms, shops, treasure, bosses) between the survivor fights.
@@ -41,7 +41,8 @@ CI (fmt, clippy, test, wasm build) and a Pages deploy workflow.
   seed). The bot kites and aims at the nearest enemy (`AimOverride` in `weapons.rs`) but always
   picks card 1, so treat results as a hint, not proof. The first dungeon room is a warm-up
   (`is_warmup` in `logic/dungeon.rs`). Still open: a hand-played balancing pass of rooms 2+.
-- Next: **M2 performance** (benchmark scene, profiling, pooling, 5 000 enemies at 60 FPS).
+- All roadmap milestones are done (see Roadmap). The GitHub repo is still called `rust-rogue-like`;
+  rename it to `hexfall` in Settings when going public and fix the play link in `README.md`.
 
 ## What Milestone 1 contains
 

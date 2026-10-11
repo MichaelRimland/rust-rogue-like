@@ -1,6 +1,6 @@
-# rust-rogue-like
+# Hexfall
 
-*(Working title.)* A dark-fantasy **survivor-roguelike** written in **Rust** with the
+A dark-fantasy **survivor-roguelike** written in **Rust** with the
 **[Bevy](https://bevy.org) 0.20** engine. You are a lone wizard: your spells cast themselves
 towards the mouse cursor, your job is to move, dodge and turn lucky upgrade rolls into a build
 that survives three floors of rounds, shops and bosses - and the end boss.
@@ -98,8 +98,8 @@ On Linux you need a few system packages first, e.g. on Ubuntu:
 rustup target add wasm32-unknown-unknown
 cargo build --profile wasm-release --target wasm32-unknown-unknown
 cargo install wasm-bindgen-cli   # version must match the wasm-bindgen crate in Cargo.lock
-wasm-bindgen --out-dir dist --out-name rust_rogue_like --target web --no-typescript \
-  target/wasm32-unknown-unknown/wasm-release/rust-rogue-like.wasm
+wasm-bindgen --out-dir dist --out-name hexfall --target web --no-typescript \
+  target/wasm32-unknown-unknown/wasm-release/hexfall.wasm
 cp web/index.html dist/ && cp -r assets dist/
 # serve dist/ with any static file server, e.g. `python3 -m http.server -d dist`
 ```

@@ -41,8 +41,8 @@ jobs:
 
       - name: Generate JS bindings
         run: |
-          wasm-bindgen --out-dir dist --out-name rust_rogue_like --target web --no-typescript \
-            target/wasm32-unknown-unknown/wasm-release/rust-rogue-like.wasm
+          wasm-bindgen --out-dir dist --out-name hexfall --target web --no-typescript \
+            target/wasm32-unknown-unknown/wasm-release/hexfall.wasm
           cp web/index.html dist/
           # Copy game assets once the project has some.
           if [ -d assets ]; then cp -r assets dist/; fi

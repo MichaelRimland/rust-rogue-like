@@ -26,9 +26,9 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $dir = "rust-rogue-like-windows"
+          $dir = "hexfall-windows"
           New-Item -ItemType Directory -Force $dir | Out-Null
-          Copy-Item target/release/rust-rogue-like.exe $dir/
+          Copy-Item target/release/hexfall.exe $dir/
           Copy-Item -Recurse assets $dir/assets
           # Raw generator output and the style guide are not needed to play.
           Remove-Item -Recurse -Force "$dir/assets/raw" -ErrorAction SilentlyContinue
@@ -37,11 +37,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rust-rogue-like-windows
-          path: rust-rogue-like-windows.zip
+          name: hexfall-windows
+          path: hexfall-windows.zip
 
       - name: Attach to the GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: rust-rogue-like-windows.zip
+          files: hexfall-windows.zip

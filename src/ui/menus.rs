@@ -104,7 +104,7 @@ fn spawn_main_menu(mut commands: Commands, meta: Res<Meta>, asset_server: Res<As
         },
         ChildOf(root),
     ));
-    commands.spawn((label("RUST ROGUE-LIKE", 72.0, ACCENT_COLOR), ChildOf(root)));
+    commands.spawn((label("HEXFALL", 72.0, ACCENT_COLOR), ChildOf(root)));
     commands.spawn((
         label("Fight through the cursed dungeon.", 22.0, TEXT_COLOR),
         ChildOf(root),

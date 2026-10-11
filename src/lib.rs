@@ -1,4 +1,4 @@
-//! rust-rogue-like (working title): a fantasy survivor-roguelike.
+//! Hexfall: a fantasy survivor-roguelike.
 //!
 //! The crate is split into
 //! - [`logic`]: engine-independent rules (stats, upgrades, progression, spatial hashing, RNG),

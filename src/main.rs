@@ -1,5 +1,5 @@
 use bevy::{asset::AssetMetaCheck, prelude::*};
-use rust_rogue_like::GamePlugin;
+use hexfall::GamePlugin;
 
 fn main() {
     App::new()
@@ -14,7 +14,7 @@ fn main() {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Rust Rogue-like".into(),
+                        title: "Hexfall".into(),
                         resolution: (1280, 720).into(),
                         // Web: fill the browser window and keep keys like Space from scrolling the page.
                         fit_canvas_to_parent: true,
