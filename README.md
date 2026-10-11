@@ -115,6 +115,7 @@ Pages.
 | `cargo run -- --autoplay 30 --enemies 5000 --endless` | Benchmark with a crowd |
 | `cargo run -- --autoplay 30 --floor 3 --boss` | Jump straight into a boss room |
 | `cargo run -- --autoplay 30 --maxed` | Start with every upgrade at maximum |
+| `cargo run --release -- --autoplay 300 --mortal` | Let the bot die; prints time, level and kills (balancing) |
 | `cargo run -- --autoplay 30 --room shop` | Start in a shop, rest, treasure or elite room |
 | `cargo run -- --autoplay 40 --capture-dir frames --capture-from 20` | Save a frame sequence |
 | `python tools/make_gif.py frames docs/gameplay.webp` | Assemble frames into an animation |
